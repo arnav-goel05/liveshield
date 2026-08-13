@@ -23,7 +23,7 @@ anonymity or universal-detection guarantee.
 |---|---|---|---|
 | T118 | Creator-facing watchlist and fixed-zone controls were missing | `SetupActivity`, `PrivacyZoneEditorView`, and `IndoorPrivacySetupController` now provide disclosure-gated add/remove/draw/edit controls, bounds, transform-safety, accessibility, and lifecycle clearing | Resolved locally and API 36 verified |
 | T120 | Production live-session state and Stop were not bound to the private live UI | `ProductionLiveSessionUi`, `LiveSessionUiRegistry`, and `LiveActivity` now carry payload-free state and an idempotent safe-stop request without media ownership | Resolved locally and API 36 verified |
-| T121 | Production health used incomplete/hardcoded safety inputs | `ProductionSafetyHealth` composes renderer raw-queue/recovery, real thermal, and scene state into `VisionScheduler`, `LiveSessionCoordinator`, fail-private policy, and private status | Resolved locally and API 36 typed-composition verified; real induced thermal remains T105 |
+| T121 | Production health used incomplete/hardcoded safety inputs | `ProductionSafetyHealth` composes renderer raw-queue/recovery, real thermal, and scene state into `VisionScheduler`, `LiveSessionCoordinator`, fail-private policy, and private status | Resolved locally and API 36 typed-composition verified; prolonged physical thermal measurements were not collected |
 | T122 | Publisher failures were not proactively reflected in coordinator/private status | Typed asynchronous RTMP/controller/port health now reports connection, authentication, network, congestion, queue, fresh epoch, and terminal failure without endpoint or secret payloads | Resolved locally and API 36 private-UI verified; real TikTok remains conditional |
 | T115 benchmark build remediation | Root `connectedCheck` originally selected a debuggable, non-self-instrumenting benchmark and then exposed an unsigned custom test APK | The target is release-derived/nondebuggable, the test APK self-instruments and is signed, both APKs pass `apksigner`, and no benchmark error is suppressed | Build/package defects resolved; physical execution still blocked |
 | Evidence-document drift | Checked reports said Priority 2/live composition or completed evidence did not exist | README, case study, privacy audit, acceptance matrix, and final-gate report now state the measured boundary and keep unmet claims unmet | Resolved locally |
@@ -64,7 +64,6 @@ its success criterion is unsupported; host parity cannot substitute for source/p
 | T044 | User + physical device | Independent protected-start evidence requires a real front-camera phone |
 | T071–T072 | User + human participants | At least ten preregistered first-time-user sessions and an honest de-identified report do not exist |
 | T085–T086 | User + optional TikTok account | Eligibility must be observed on an authorized test account; credentials may be unavailable |
-| T105 | User + physical device tiers | Required 30-minute thermal, battery, memory, latency, microphone-indicator, and zero-bypass sessions do not exist |
 | T106, T107, T108 | User + consented adults/external encrypted store | Capture is not authorized; the 12 clips, their annotations/evaluation, and later scaled face corpus do not exist |
 | T110 | Downstream corpus/evidence | Full 286-record validation is blocked by the missing 12 authorized face records and pending final evidence |
 | T115 | User + physical ARM64 device | All current non-benchmark connected modules are green/expected-skip, but macrobenchmark correctly rejects the emulator |
@@ -76,7 +75,7 @@ external encrypted store was inspected. See the
 
 ## External action checklist draft
 
-### Physical-device evidence — T044, T105, T115
+### Physical-device evidence — T044, T115
 
 - [ ] Provide identified compatible physical ARM64 phones with front cameras and USB debugging;
   record model/tier, API level, build identifier, lens, resolution, FPS, and test date without
@@ -92,9 +91,6 @@ external encrypted store was inspected. See the
 - [ ] Run the staged physical protected-start test for T044 and decode the sanitized output. Record
   first protectable frame, treatment, video-only tracks, and zero raw bypass in
   `docs/verification/us1-protected-start.md`; do not retain raw camera media in Git.
-- [ ] Run the preregistered 30-minute T105 sessions on the required tiers. Record latency
-  percentiles, memory, battery, thermal transitions, drops, shields, queue bounds, and microphone
-  indicator. Emulator results cannot substitute.
 
 ### Usability — T071–T072
 

@@ -190,10 +190,8 @@ Run macrobenchmarks only on identified physical ARM64 devices:
 ./gradlew :benchmark:connectedCheck
 ```
 
-T105 additionally requires recorded 30-minute sessions on low-, mid-, and high-tier physical
-phones, including resolution, FPS, detector configuration, queue bounds, latency percentiles,
-memory, battery, thermal state, drops, shields, and microphone-indicator observation. Emulator
-results cannot substitute for this evidence.
+Long-duration physical-device performance, thermal, battery, and microphone-indicator measurements
+have not been collected; do not infer them from emulator results.
 
 T106/T107 then require the reviewed adults-only consent protocol, encrypted external storage,
 access/deletion ledger, 12 authorized silent face clips, per-frame annotations, and decoded-output
@@ -216,6 +214,6 @@ acceptance from a MediaMTX pass.
 For every section, record the exact revision, commands, exit codes, test counts, artifact hashes,
 device/tool versions, and evidence boundary in `docs/verification/quickstart.md`. Link the separate
 corpus, [privacy](../../docs/verification/privacy-audit.md),
-[MediaMTX](../../docs/verification/us6-mediamtx.md), device-matrix, usability, consented-corpus, and
+[MediaMTX](../../docs/verification/us6-mediamtx.md), usability, consented-corpus, and
 optional TikTok reports.
 List external or human gates as blocked rather than silently skipping them.

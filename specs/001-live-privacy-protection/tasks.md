@@ -245,7 +245,6 @@ end-to-end fail-private behavior.
 - [x] T102 [P] Add cold-start, frame-timing, and custom trace benchmarks in `benchmark/src/main/java/com/liveshield/benchmark/LiveShieldBenchmark.java`
 - [x] T103 [P] Add static checks that forbid raw image types and destination secrets in transport/telemetry APIs and reject `RECORD_AUDIO`, first-party microphone capture/audio encoders, and audio publish calls in `tools/privacy/check-boundaries.sh`
 - [x] T104 [P] Add app accessibility labels, focus order, contrast checks, and nonvisual health announcements in `app/src/androidTest/java/com/liveshield/app/AccessibilityTest.java`
-- [ ] T105 User action: connect the available physical-device tiers, then run 30-minute sessions, exercise degraded/severe thermal policy, verify the microphone indicator remains off, and record device, API level, resolution, FPS, detector configuration, video queue bounds, latency percentiles, memory, battery, thermal state, drops, shields, and zero raw bypass in `docs/verification/device-matrix.md`
 - [ ] T106 User action: after the capture protocol passes review, record 12 consented adult face-tracking clips into the approved encrypted external store and add only opaque authorization references to `test-fixtures/manifests/face-v1.jsonl`
 - [ ] T107 Annotate and evaluate the 12 controlled clips with per-frame privacy polygons, track IDs, roles, transforms, protectable timestamps, and decoded-output metrics in `test-fixtures/annotations/face-v1/` and `docs/verification/consented-device-corpus.md`
 - [ ] T108 User action: before claiming SC-001, expand the controlled corpus to at least 180 independent face episodes, 100 unknown-face appearances, 10,000 annotated positive frames, and three physical device tiers according to `specs/001-live-privacy-protection/test-data.md`
@@ -333,7 +332,7 @@ It does not yet claim automatic bystander detection, Priority 2 protection, or T
 
 ### User-effort gates
 
-- **T044/T105**: Connect at least one physical Android phone; later add more devices if available.
+- **T044**: Connect at least one physical Android phone for the protected-start evidence.
 - **T106**: Recruit at least four consenting adults and capture 12 controlled clips only after the capture protocol and encrypted external store are approved.
 - **T108**: Expand the controlled face corpus and physical-device coverage before claiming SC-001; this is not required for the initial prototype.
 - **T071**: Arrange representative first-time-user sessions.

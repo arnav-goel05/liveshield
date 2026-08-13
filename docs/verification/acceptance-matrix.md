@@ -35,7 +35,7 @@ synthetic, emulator, or public-regression evidence into a broader claim.
 | FR-023 controlled compatible demo distinct from TikTok | MET | MediaMTX destination is labeled not TikTok; production RTMP, independent `ffprobe`, and controlled WebRTC viewer evidence are green. |
 | FR-024 masked, ephemeral, cleared destination secrets | MET for inspected flow | Secret ownership/zeroization tests and final API 36 destination audit found the fictional secret zero times in logs/private files after recreation/close. |
 | FR-025 destination failure stops or remains fail-private | MET for inspected production composition | Typed asynchronous publisher callbacks reach the coordinator and private UI; connection/reconnect degrades, terminal failure stops safely, and recovery requires fresh configuration/key media. Stream-session tests clear delayed units and no alternate raw path exists. Real TikTok failure evidence remains external. |
-| FR-026 thermal degradation, shield/stop, safe recovery | PARTIAL | The real production thermal controller and renderer/scene health feed the scheduler and coordinator; typed-composition tests cover warning, severe shield, unsafe recovery, and verified recovery. Real induced thermal on physical devices remains T105. |
+| FR-026 thermal degradation, shield/stop, safe recovery | PARTIAL | The real production thermal controller and renderer/scene health feed the scheduler and coordinator; typed-composition tests cover warning, severe shield, unsafe recovery, and verified recovery. Real induced thermal on physical devices has not been measured. |
 
 ## Success criteria
 

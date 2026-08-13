@@ -37,7 +37,7 @@ for those runs; they are not evidence that the current quickstart passed from a 
 | API 36 RTMP integration | `run-api36-rtmp-integration.sh` | Emulator/host-tool-bound | Existing T084 report is not a clean-checkout rerun |
 | Trusted-LAN demonstration | pinned Docker Compose relay plus installed app | External/manual | Requires Docker, LAN, camera flow, decoded viewer evidence |
 | Encoded fail-private evidence | current video-pipeline instrumentation | Device-bound | Old `-PencodedFixture` quickstart command was stale and removed |
-| Physical performance | `:benchmark:connectedCheck` plus T105 protocol | Human/device-blocked | Three physical tiers and 30-minute sessions absent |
+| Physical performance | `:benchmark:connectedCheck` | Device-blocked | Physical benchmark execution remains absent; prolonged thermal/battery measurements were not collected |
 | Usability | T071/T072 | Human-blocked | Recruitment and outcome report absent |
 | Consented face corpus | T106/T107 | Human/privacy-blocked | Capture must wait for reviewed protocol and external store |
 | Growth corpus | T108 | Later human/data gate | Not part of initial 286-record validation |

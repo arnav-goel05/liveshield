@@ -154,8 +154,8 @@ The following artifacts are absent or incomplete and must be audited when they e
 - a future qualifying OCR DEVELOPMENT run followed by separately authorized Noto v2 HOLDOUT and
   decoded-output evidence; current QR 8/8 and zones 32/32 do not compensate for automatic/watchlist
   0/32 each, and SC-002/SC-009 remain unmet;
-- 30-minute low/mid/high physical-device traces, screenshots if explicitly captured, crash output,
-  microphone-indicator observation, memory/battery/thermal logs (T105);
+- prolonged physical-device traces, screenshots if explicitly captured, crash output,
+  microphone-indicator observation, and memory/battery/thermal logs;
 - TikTok credentials and viewer evidence, only if an eligible test account is explicitly provided
   (T085/T086);
 - a new final gate over the converged T118–T122 workspace. The retained T115 report predates those
