@@ -74,11 +74,6 @@ public final class SetupActivity extends FragmentActivity
     private PrivacyZoneEditorView zoneEditor;
     private TextView zoneStatus;
     private Button zoneConfirmButton;
-    private Button zoneAddOrUpdateButton;
-    private EditText zoneLeft;
-    private EditText zoneTop;
-    private EditText zoneRight;
-    private EditText zoneBottom;
     private int selectedZoneIndex = -1;
     private boolean cameraTransformValidated;
     private FrameTransform privacyZoneTransform;
@@ -391,15 +386,9 @@ public final class SetupActivity extends FragmentActivity
         zoneEditor = findViewById(R.id.privacy_zone_editor_overlay);
         zoneStatus = findViewById(R.id.privacy_zone_status);
         zoneConfirmButton = findViewById(R.id.confirm_privacy_zones);
-        zoneAddOrUpdateButton = findViewById(R.id.add_or_update_privacy_zone);
-        zoneLeft = findViewById(R.id.privacy_zone_left);
-        zoneTop = findViewById(R.id.privacy_zone_top);
-        zoneRight = findViewById(R.id.privacy_zone_right);
-        zoneBottom = findViewById(R.id.privacy_zone_bottom);
         findViewById(R.id.add_watchlist_term).setOnClickListener(ignored -> addWatchlistTerm());
         findViewById(R.id.toggle_zone_drawing).setOnClickListener(this::toggleZoneDrawing);
         zoneEditor.setZoneDrawListener(this::addDrawnZone);
-        zoneAddOrUpdateButton.setOnClickListener(ignored -> addOrUpdateNumericZone());
         findViewById(R.id.previous_privacy_zone).setOnClickListener(
                 ignored -> selectRelativeZone(-1));
         findViewById(R.id.next_privacy_zone).setOnClickListener(
@@ -501,34 +490,6 @@ public final class SetupActivity extends FragmentActivity
         }
     }
 
-    private void addOrUpdateNumericZone() {
-        try {
-            com.liveshield.privacy.model.NormalizedRect zone =
-                    new com.liveshield.privacy.model.NormalizedRect(
-                            percent(zoneLeft), percent(zoneTop),
-                            percent(zoneRight), percent(zoneBottom));
-            if (selectedZoneIndex >= 0) {
-                indoorPrivacySetup.replacePrivacyZone(selectedZoneIndex, zone);
-            } else {
-                indoorPrivacySetup.addPrivacyZone(zone);
-                selectedZoneIndex = indoorPrivacySetup.configuredPrivacyZones().size() - 1;
-            }
-            markEditedZoneUnsafe();
-        } catch (IllegalArgumentException exception) {
-            zoneStatus.setText(R.string.privacy_zone_status_invalid);
-        } catch (IllegalStateException exception) {
-            zoneStatus.setText(R.string.privacy_zone_status_limit);
-        }
-    }
-
-    private static double percent(EditText input) {
-        double value = Double.parseDouble(input.getText().toString());
-        if (!Double.isFinite(value) || value < 0.0 || value > 100.0) {
-            throw new IllegalArgumentException("Percentage outside bounds");
-        }
-        return value / 100.0;
-    }
-
     private void selectRelativeZone(int offset) {
         int count = indoorPrivacySetup.configuredPrivacyZones().size();
         if (count == 0) {
@@ -592,16 +553,6 @@ public final class SetupActivity extends FragmentActivity
             selectedZoneIndex = zones.isEmpty() ? -1 : zones.size() - 1;
         }
         zoneEditor.showZones(zones, selectedZoneIndex);
-        boolean selected = selectedZoneIndex >= 0;
-        zoneAddOrUpdateButton.setText(selected
-                ? R.string.update_privacy_zone : R.string.add_privacy_zone);
-        if (selected) {
-            com.liveshield.privacy.model.NormalizedRect zone = zones.get(selectedZoneIndex);
-            zoneLeft.setText(decimalPercent(zone.left()));
-            zoneTop.setText(decimalPercent(zone.top()));
-            zoneRight.setText(decimalPercent(zone.right()));
-            zoneBottom.setText(decimalPercent(zone.bottom()));
-        }
         IndoorPrivacySetupController.Configuration snapshot = indoorPrivacySetup.snapshot();
         if (zones.isEmpty()) {
             zoneStatus.setText(R.string.privacy_zone_status_empty);
@@ -616,11 +567,6 @@ public final class SetupActivity extends FragmentActivity
         zoneConfirmButton.setEnabled(
                 !zones.isEmpty() && cameraTransformValidated
                         && !snapshot.zonesSafelyTransformed());
-    }
-
-    private static String decimalPercent(double normalized) {
-        return java.math.BigDecimal.valueOf(normalized * 100.0)
-                .stripTrailingZeros().toPlainString();
     }
 
     private void renderReadiness() {

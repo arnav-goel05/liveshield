@@ -31,6 +31,11 @@ import org.opencv.core.Mat;
 
 @RunWith(AndroidJUnit4.class)
 public final class OfflineFaceAnalyzerTest {
+    @Test
+    public void defaultFreshnessBridgesBoundedSynchronousInferenceGap() {
+        assertEquals(550_000_000L, OfflineFaceAnalyzer.DEFAULT_FRESHNESS_NANOS);
+    }
+
     private static final FrameTimestamp TIMESTAMP = FrameTimestamp.ofNanos(123_456_789L);
 
     @BeforeClass

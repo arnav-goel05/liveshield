@@ -307,7 +307,7 @@ public final class SetupSessionFactory {
         return new PriorityTwoPrivacyPolicyEngine(
                 new DefaultPrivacyPolicyEngine(new PrivacyPolicyConfiguration(
                         Set.of(DetectorLane.FACE),
-                        250_000_000L,
+                        OfflineFaceAnalyzer.DEFAULT_FRESHNESS_NANOS,
                         250_000_000L,
                         400_000_000L,
                         0.25,

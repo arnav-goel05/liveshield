@@ -89,6 +89,24 @@ public final class FailPrivatePolicyTest {
     }
 
     @Test
+    public void verifiedEmptyAssessmentUsesBoundedFreshnessBeforeShielding() {
+        engine = new DefaultPrivacyPolicyEngine(new PrivacyPolicyConfiguration(
+                Set.of(DetectorLane.FACE), 550, 250, 400, 0.25, 3, 2, 5));
+        DetectorSnapshot empty = DetectorSnapshot.success(
+                DetectorLane.FACE,
+                FrameTimestamp.ofNanos(100),
+                FrameTimestamp.ofNanos(650),
+                List.of());
+
+        FramePrivacyDecision withinMeasuredGap = decide(600, List.of(empty), health());
+        FramePrivacyDecision expired = decide(651, List.of(empty), health());
+
+        assertRegional(withinMeasuredGap, FramePrivacyDecision.Basis.FRESH);
+        assertTrue(withinMeasuredGap.regions().isEmpty());
+        assertShield(expired, FramePrivacyDecision.Basis.STALE);
+    }
+
+    @Test
     public void expandedMaskGrowsAndClampsAtFrameBounds() {
         decide(100, List.of(success(DetectorLane.FACE, 95, 105)), health());
 
