@@ -48,14 +48,30 @@ public final class SensitiveFindingPolicy {
             DetectorSnapshot snapshot = latest.get(lane);
             LaneState previous = lanes.get(lane);
             if (snapshot != null && snapshot.failure().isPresent()) {
-                lanes.remove(lane);
-                return Result.shieldRequired();
+                // A bounded detector timeout must not erase protection already established by a
+                // prior successful snapshot. Continue through the normal carry/expansion clocks;
+                // a lane with no prior safe assessment still shields immediately.
+                if (previous == null) {
+                    return Result.shieldRequired();
+                }
+                snapshot = null;
             }
             boolean newSnapshot = snapshot != null
                     && (previous == null || snapshot.sourceTimestamp().compareTo(
                             previous.sourceTimestamp()) > 0);
             if (sceneChanged && snapshot != null
                     && !snapshot.sourceTimestamp().equals(frameTimestamp)) {
+                snapshot = null;
+                newSnapshot = false;
+            }
+            if (newSnapshot
+                    && snapshot.findings().isEmpty()
+                    && previous != null
+                    && !previous.regions().isEmpty()) {
+                // Camera focus, motion, and partial occlusion commonly produce an isolated
+                // successful "nothing found" frame between positive barcode frames. Preserve
+                // the last protected geometry through the bounded carry/expansion windows so
+                // its mask does not blink; sustained absence still expires normally.
                 snapshot = null;
                 newSnapshot = false;
             }

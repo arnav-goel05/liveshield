@@ -37,7 +37,11 @@ import org.opencv.objdetect.FaceDetectorYN;
 
 /** Offline YuNet face analyzer that emits geometry and session-local IoU tracking hints only. */
 public final class OfflineFaceAnalyzer implements VisionAnalyzer, AutoCloseable {
-    static final long DEFAULT_FRESHNESS_NANOS = 100_000_000L;
+    // The CameraX frame timestamp precedes bitmap conversion and native YuNet inference. On
+    // high-resolution device streams, a 100 ms validity window can be nearly exhausted before
+    // the result reaches the renderer and makes otherwise healthy frames alternate with STALE.
+    // Match the scheduler's bounded face deadline so one accepted result bridges inference work.
+    static final long DEFAULT_FRESHNESS_NANOS = 250_000_000L;
     private static final double MINIMUM_TRACK_IOU = 0.20;
 
     private final FaceDetectionEngine engine;

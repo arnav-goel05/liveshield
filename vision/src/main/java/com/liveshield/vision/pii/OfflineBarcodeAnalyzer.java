@@ -8,10 +8,11 @@ import com.google.zxing.DecodeHintType;
 import com.google.zxing.MultiFormatReader;
 import com.google.zxing.NotFoundException;
 import com.google.zxing.PlanarYUVLuminanceSource;
+import com.google.zxing.ReaderException;
 import com.google.zxing.Result;
 import com.google.zxing.ResultPoint;
 import com.google.zxing.common.HybridBinarizer;
-import com.google.zxing.multi.GenericMultipleBarcodeReader;
+import com.google.zxing.qrcode.QRCodeReader;
 import com.liveshield.privacy.model.ConfidenceClass;
 import com.liveshield.privacy.model.CoordinateTransform;
 import com.liveshield.privacy.model.DetectorLane;
@@ -40,7 +41,9 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Fully offline ZXing barcode analyzer that emits protected geometry and no decoded payload. */
 public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
     private static final int DEFAULT_MAXIMUM_CODES = 16;
-    private static final long DEFAULT_FRESHNESS_NANOS = 250_000_000L;
+    // High-resolution camera frames can take several hundred milliseconds to decode on-device.
+    // Keep successful geometry valid up to the scheduler's bounded one-second maximum.
+    private static final long DEFAULT_FRESHNESS_NANOS = 1_000_000_000L;
     private static final double MINIMUM_REGION_FRACTION = 0.02;
 
     private final BarcodeEngine engine;
@@ -230,7 +233,11 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
         double bottom = points.stream().mapToDouble(NormalizedPoint::y).max().orElseThrow();
         double width = right - left;
         double height = bottom - top;
-        double paddingFactor = detection.format() == Format.QR_CODE ? 1.25 : 0.20;
+        // QR finder-pattern centres are approximately 3.5 modules in from the symbol edge.
+        // Their centre-to-centre span is the symbol width minus 7 modules, so one quarter of
+        // that span per side reconstructs the perimeter for the common QR versions without
+        // turning a localized code into a near-full-frame mask.
+        double paddingFactor = detection.format() == Format.QR_CODE ? 0.25 : 0.20;
         if (width <= 0.0 || height <= 0.0) {
             return List.of();
         }
@@ -436,6 +443,8 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
             return thread;
         });
         private final AtomicBoolean closed = new AtomicBoolean();
+        // Executor-confined normalized hint. It contains geometry only, never decoded payload.
+        private SearchRegion lastQrSearchRegion;
 
         @Override
         public DecodeOperation decode(BarcodeAnalysisFrame frame, DecodeCallback callback) {
@@ -483,39 +492,104 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
             }
         }
 
-        private static List<DetectedBarcode> decodeOwned(byte[] luminance, int width, int height) {
+        private List<DetectedBarcode> decodeOwned(byte[] luminance, int width, int height) {
             ScaledLuminance scaled = upscaleSmallInput(luminance, width, height);
-            PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
-                    scaled.bytes(), scaled.width(), scaled.height(),
-                    0, 0, scaled.width(), scaled.height(), false);
-            BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
             Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
             hints.put(DecodeHintType.POSSIBLE_FORMATS, enabledFormats());
             hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
-            MultiFormatReader reader = new MultiFormatReader();
-            GenericMultipleBarcodeReader multiple = new GenericMultipleBarcodeReader(reader);
             try {
-                Result[] results = multiple.decodeMultiple(bitmap, hints);
-                List<DetectedBarcode> detections = new ArrayList<>(results.length);
-                for (Result result : results) {
-                    Format format = format(result.getBarcodeFormat());
-                    if (format != null) {
-                        detections.add(new DetectedBarcode(
-                                format,
-                                polygon(result.getResultPoints(), scaled.width(), scaled.height()),
-                                result.getText() == null || result.getText().isEmpty()
-                                        ? PayloadState.EMPTY : PayloadState.VALID));
-                    }
+                LocatedResult qr = decodeQr(scaled, lastQrSearchRegion, hints);
+                if (qr == null) {
+                    qr = decodeQr(scaled, SearchRegion.fullFrame(), hints);
                 }
-                return List.copyOf(detections);
+                if (qr != null) {
+                    DetectedBarcode detection = detection(
+                            qr.result(), scaled.width(), scaled.height(),
+                            qr.left(), qr.top());
+                    lastQrSearchRegion = searchRegion(detection.polygon());
+                    return List.of(detection);
+                }
+
+                PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
+                        scaled.bytes(), scaled.width(), scaled.height(),
+                        0, 0, scaled.width(), scaled.height(), false);
+                BinaryBitmap bitmap = new BinaryBitmap(new HybridBinarizer(source));
+                MultiFormatReader reader = new MultiFormatReader();
+                // A recursive multi-code scan can exceed the live result-validity window on
+                // high-resolution CameraX frames. Return the first privacy code promptly; the
+                // bounded camera cadence continues scanning subsequent frames for other codes.
+                try {
+                    Result result = reader.decode(bitmap, hints);
+                    Format format = format(result.getBarcodeFormat());
+                    if (format == null) {
+                        return List.of();
+                    }
+                    return List.of(detection(result, scaled.width(), scaled.height(), 0, 0));
+                } finally {
+                    reader.reset();
+                }
             } catch (NotFoundException noCode) {
                 return List.of();
             } finally {
-                reader.reset();
                 if (scaled.bytes() != luminance) {
                     Arrays.fill(scaled.bytes(), (byte) 0);
                 }
             }
+        }
+
+        private static LocatedResult decodeQr(
+                ScaledLuminance scaled,
+                SearchRegion region,
+                Map<DecodeHintType, Object> hints) {
+            if (region == null) {
+                return null;
+            }
+            int left = (int) Math.floor(region.left() * scaled.width());
+            int top = (int) Math.floor(region.top() * scaled.height());
+            int right = (int) Math.ceil(region.right() * scaled.width());
+            int bottom = (int) Math.ceil(region.bottom() * scaled.height());
+            left = Math.max(0, Math.min(left, scaled.width() - 1));
+            top = Math.max(0, Math.min(top, scaled.height() - 1));
+            right = Math.max(left + 1, Math.min(right, scaled.width()));
+            bottom = Math.max(top + 1, Math.min(bottom, scaled.height()));
+            PlanarYUVLuminanceSource source = new PlanarYUVLuminanceSource(
+                    scaled.bytes(), scaled.width(), scaled.height(),
+                    left, top, right - left, bottom - top, false);
+            try {
+                Result result = new QRCodeReader().decode(
+                        new BinaryBitmap(new HybridBinarizer(source)), hints);
+                return new LocatedResult(result, left, top);
+            } catch (ReaderException invalidQr) {
+                return null;
+            }
+        }
+
+        private static DetectedBarcode detection(
+                Result result, int width, int height, int offsetX, int offsetY) {
+            Format format = format(result.getBarcodeFormat());
+            if (format == null) {
+                throw new IllegalArgumentException("Unsupported barcode format");
+            }
+            return new DetectedBarcode(
+                    format,
+                    polygon(result.getResultPoints(), width, height, offsetX, offsetY),
+                    result.getText() == null || result.getText().isEmpty()
+                            ? PayloadState.EMPTY : PayloadState.VALID);
+        }
+
+        private static SearchRegion searchRegion(List<NormalizedPoint> points) {
+            if (points.size() < 2) {
+                return SearchRegion.fullFrame();
+            }
+            double left = points.stream().mapToDouble(NormalizedPoint::x).min().orElse(0.0);
+            double top = points.stream().mapToDouble(NormalizedPoint::y).min().orElse(0.0);
+            double right = points.stream().mapToDouble(NormalizedPoint::x).max().orElse(1.0);
+            double bottom = points.stream().mapToDouble(NormalizedPoint::y).max().orElse(1.0);
+            double width = right - left;
+            double height = bottom - top;
+            return new SearchRegion(
+                    clamp(left - width), clamp(top - height),
+                    clamp(right + width), clamp(bottom + height));
         }
 
         /**
@@ -568,7 +642,7 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
         }
 
         private static List<NormalizedPoint> polygon(
-                ResultPoint[] points, int width, int height) {
+                ResultPoint[] points, int width, int height, int offsetX, int offsetY) {
             if (points == null || points.length < 2) {
                 return List.of(
                         new NormalizedPoint(0.0, 0.0), new NormalizedPoint(1.0, 0.0),
@@ -577,7 +651,8 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
             List<NormalizedPoint> normalized = new ArrayList<>(points.length);
             for (ResultPoint point : points) {
                 normalized.add(new NormalizedPoint(
-                        clamp(point.getX() / width), clamp(point.getY() / height)));
+                        clamp((point.getX() + offsetX) / width),
+                        clamp((point.getY() + offsetY) / height)));
             }
             return List.copyOf(normalized);
         }
@@ -585,6 +660,15 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
         record ScaledLuminance(byte[] bytes, int width, int height) {
             ScaledLuminance {
                 Objects.requireNonNull(bytes, "bytes");
+            }
+        }
+
+        private record LocatedResult(Result result, int left, int top) {
+        }
+
+        private record SearchRegion(double left, double top, double right, double bottom) {
+            private static SearchRegion fullFrame() {
+                return new SearchRegion(0.0, 0.0, 1.0, 1.0);
             }
         }
     }

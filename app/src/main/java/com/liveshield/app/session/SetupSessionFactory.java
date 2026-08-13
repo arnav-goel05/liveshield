@@ -14,6 +14,7 @@ import com.liveshield.privacy.model.CoordinateTransform;
 import com.liveshield.privacy.model.DetectorLane;
 import com.liveshield.privacy.model.NormalizedRect;
 import com.liveshield.privacy.policy.DefaultPrivacyPolicyEngine;
+import com.liveshield.privacy.policy.PrivacyPolicyConfiguration;
 import com.liveshield.privacy.policy.PriorityTwoPolicy;
 import com.liveshield.privacy.policy.PriorityTwoPrivacyPolicyEngine;
 import com.liveshield.privacy.policy.SensitiveFindingPolicy;
@@ -177,12 +178,26 @@ public final class SetupSessionFactory {
                 new VisionAnalyzerLaneAdapter(barcodeAnalyzer, Runnable::run),
                 snapshot -> {
                     if (snapshot.failure().isPresent()) {
-                        AppDiagnostics.state(
-                                AppDiagnostics.Event.DETECTOR_FAILURE, snapshot.lane());
+                        AppDiagnostics.states(
+                                AppDiagnostics.Event.DETECTOR_FAILURE,
+                                snapshot.lane(),
+                                snapshot.failure().orElseThrow().code());
                     } else {
                         AppDiagnostics.stateCount(
                                 AppDiagnostics.Event.DETECTOR_SNAPSHOT,
                                 snapshot.lane(), snapshot.observations().size());
+                        if (snapshot.lane() == DetectorLane.BARCODE) {
+                            long regionId = 0L;
+                            for (var observation : snapshot.observations()) {
+                                for (NormalizedRect bounds : observation.region().bounds()) {
+                                    AppDiagnostics.bounds(
+                                            AppDiagnostics.Event.BARCODE_SENSOR_BOUNDS,
+                                            regionId++,
+                                            bounds.left(), bounds.top(),
+                                            bounds.right(), bounds.bottom());
+                                }
+                            }
+                        }
                     }
                     withCoordinator(coordinatorRef, value -> value.onDetectorSnapshot(snapshot));
                     if (snapshot.lane() == DetectorLane.FACE) {
@@ -282,15 +297,23 @@ public final class SetupSessionFactory {
                         // the frozen DEVELOPMENT evaluation. Do not let that unavailable lane
                         // make supported face, barcode, and configured-zone preview unusable.
                         Set.of(DetectorLane.BARCODE),
-                        750_000_000L,
-                        1_000_000_000L,
+                        1_500_000_000L,
+                        2_000_000_000L,
                         0.25,
                         256,
                         512,
                         512,
                         16));
         return new PriorityTwoPrivacyPolicyEngine(
-                new DefaultPrivacyPolicyEngine(),
+                new DefaultPrivacyPolicyEngine(new PrivacyPolicyConfiguration(
+                        Set.of(DetectorLane.FACE),
+                        250_000_000L,
+                        250_000_000L,
+                        400_000_000L,
+                        0.25,
+                        12,
+                        3,
+                        33_333_334L)),
                 new PriorityTwoPolicy(findings));
     }
 

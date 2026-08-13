@@ -26,6 +26,15 @@ public final class AppDiagnostics {
                 + " state=" + Objects.requireNonNull(state, "state").name());
     }
 
+    public static void states(Event event, Enum<?> component, Enum<?> state) {
+        if (!BuildConfig.DEBUG) {
+            return;
+        }
+        writeInfo("event=" + Objects.requireNonNull(event, "event").name()
+                + " component=" + Objects.requireNonNull(component, "component").name()
+                + " state=" + Objects.requireNonNull(state, "state").name());
+    }
+
     public static void failure(Event event, Throwable failure) {
         if (!BuildConfig.DEBUG) {
             return;
@@ -112,6 +121,7 @@ public final class AppDiagnostics {
         DETECTOR_SNAPSHOT,
         DETECTOR_FAILURE,
         FACE_SENSOR_BOUNDS,
+        BARCODE_SENSOR_BOUNDS,
         FACE_OVERLAY_BOUNDS,
         FACE_REGION_TAP_HIT,
         FACE_REGION_TAP_MISS,

@@ -102,13 +102,12 @@ public final class CameraSessionController implements AutoCloseable {
 
         imageAnalysis = new ImageAnalysis.Builder()
                 .setTargetName("LiveShield-OnDevice-Analysis")
-                // CameraX defaults ImageAnalysis to 640x480. The live analyzer is deliberately
-                // non-blocking and bounded to 320x240 so CPU conversion plus offline inference can
-                // complete inside the 100 ms privacy freshness window without stalling Preview.
+                // Preserve enough native detail for stable QR finder-pattern decoding while the
+                // non-blocking strategy drops stale work instead of stalling Preview.
                 .setResolutionSelector(new ResolutionSelector.Builder()
                         .setResolutionStrategy(new ResolutionStrategy(
-                                new Size(320, 240),
-                                ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
+                                new Size(1280, 720),
+                                ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER))
                         .build())
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build();
