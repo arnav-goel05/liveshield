@@ -95,6 +95,24 @@ public final class PrivacySurfaceProcessorPolicyTest {
     }
 
     @Test
+    public void surfaceOutputMatrixDefinesMaskCoordinatesWithoutInputTransformReuse() {
+        Matrix sensorToOutput = new Matrix();
+        sensorToOutput.setValues(new float[]{
+            0.0f, -0.25f, 750.0f,
+            0.25f, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f
+        });
+
+        FrameTransform transform = PrivacySurfaceProcessor.fromCameraXOutput(
+                new CameraGeometry(0, 0, 4000, 3000),
+                new Size(750, 1000),
+                sensorToOutput);
+
+        assertEquals(new NormalizedPoint(0.5, 0.5),
+                transform.mapSensorToOutput(new NormalizedPoint(0.5, 0.5)));
+    }
+
+    @Test
     public void incomingFrameCallbackAfterCloseDoesNotReachTerminatedExecutor() {
         List<Throwable> failures = new ArrayList<>();
         AtomicBoolean terminated = new AtomicBoolean();

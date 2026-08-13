@@ -3,6 +3,7 @@ package com.liveshield.app.session;
 import android.util.Size;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
+import com.liveshield.app.diagnostics.AppDiagnostics;
 import com.liveshield.privacy.model.CoordinateTransform;
 import com.liveshield.privacy.model.FrameTimestamp;
 import com.liveshield.privacy.session.SessionHealth;
@@ -10,6 +11,7 @@ import com.liveshield.video.analysis.VisionScheduler;
 import com.liveshield.video.geometry.CameraGeometry;
 import com.liveshield.video.geometry.FrameTransform;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -22,6 +24,8 @@ final class ScheduledImageAnalyzer implements ImageAnalysis.Analyzer, AutoClosea
     private final Supplier<SessionHealth.ThermalState> thermalState;
     private final Consumer<SessionHealth.SceneState> sceneListener;
     private final SceneChangeDetector sceneDetector = new SceneChangeDetector();
+    private final AtomicBoolean resolutionReported = new AtomicBoolean();
+    private final AtomicBoolean transformReported = new AtomicBoolean();
     private boolean closed;
 
     ScheduledImageAnalyzer(VisionScheduler scheduler, Runnable unavailableCallback) {
@@ -57,10 +61,20 @@ final class ScheduledImageAnalyzer implements ImageAnalysis.Analyzer, AutoClosea
         }
         ImageProxyVisionFrame frame = null;
         try {
+            if (resolutionReported.compareAndSet(false, true)) {
+                AppDiagnostics.dimensions(
+                        AppDiagnostics.Event.ANALYSIS_RESOLUTION,
+                        image.getWidth(), image.getHeight());
+            }
             CoordinateTransform transform = FrameTransform.normalizePixelSensorToBuffer(
                     geometry,
                     new Size(image.getWidth(), image.getHeight()),
                     image.getImageInfo().getSensorToBufferTransformMatrix());
+            if (transformReported.compareAndSet(false, true)) {
+                AppDiagnostics.matrix(
+                        AppDiagnostics.Event.ANALYSIS_SENSOR_TO_BUFFER,
+                        transform.matrix());
+            }
             frame = new ImageProxyVisionFrame(
                     image,
                     FrameTimestamp.ofNanos(nanos),

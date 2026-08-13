@@ -99,7 +99,8 @@ public final class OcrRegionMapper {
         double top = Double.POSITIVE_INFINITY;
         double right = Double.NEGATIVE_INFINITY;
         double bottom = Double.NEGATIVE_INFINITY;
-        double[] matrix = transform.matrix();
+        // OCR polygons are in the analysis buffer; emit the shared sensor-space contract.
+        double[] matrix = transform.inverse().matrix();
         for (OcrElement element : elements) {
             for (NormalizedPoint point : element.polygon()) {
                 NormalizedPoint mapped = mapPoint(matrix, point);

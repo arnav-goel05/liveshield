@@ -1,5 +1,6 @@
 package com.liveshield.app.session;
 
+import com.liveshield.app.diagnostics.AppDiagnostics;
 import com.liveshield.app.setup.SelectableFace;
 import com.liveshield.app.setup.SetupUiListener;
 import com.liveshield.app.setup.SetupView;
@@ -64,12 +65,16 @@ public final class LiveSessionCoordinator
             new HostReselectionController();
     private List<FaceTrackSnapshot> latestTracks = List.of();
     private FrameTimestamp latestFaceTimestamp = FrameTimestamp.ofNanos(0L);
+    private FrameTimestamp latestDecisionTimestamp = FrameTimestamp.ofNanos(0L);
     private boolean hasFaceState;
+    private boolean hasDecision;
+    private FramePrivacyDecision.Basis lastLoggedDecisionBasis;
     private boolean rendererReady;
     private boolean publisherDegraded;
     private final Map<DetectorLane, DetectorSnapshot> detectorSnapshots =
             new EnumMap<>(DetectorLane.class);
-    private boolean closed;
+    private final Object policyLock = new Object();
+    private volatile boolean closed;
 
     public LiveSessionCoordinator(
             LiveSessionStateMachine stateMachine,
@@ -223,22 +228,28 @@ public final class LiveSessionCoordinator
                 return;
             }
             setupView.showPrivacyReady(false);
+            AppDiagnostics.info(AppDiagnostics.Event.COORDINATOR_BEGIN);
             try {
                 sanitizedPreview.attach();
                 cameraGraph.bind(new CameraGraph.BindingListener() {
                     @Override
                     public void onBound() {
+                        AppDiagnostics.info(AppDiagnostics.Event.COORDINATOR_CAMERA_BOUND);
                         dispatch(() -> setComponentReady(
                                 LiveSessionStateMachine.RequiredComponent.CAMERA, true));
                     }
 
                     @Override
                     public void onFailure(Throwable failure) {
+                        AppDiagnostics.failure(
+                                AppDiagnostics.Event.COORDINATOR_CAMERA_FAILED, failure);
                         dispatch(() -> failAndStop(
                                 LiveSessionStateMachine.RequiredComponent.CAMERA, failure));
                     }
                 });
             } catch (RuntimeException exception) {
+                AppDiagnostics.failure(
+                        AppDiagnostics.Event.COORDINATOR_CAMERA_FAILED, exception);
                 failAndStop(LiveSessionStateMachine.RequiredComponent.CAMERA, exception);
             }
         });
@@ -255,9 +266,23 @@ public final class LiveSessionCoordinator
         Objects.requireNonNull(snapshot, "snapshot");
         dispatch(() -> {
             if (!closed) {
-                detectorSnapshots.put(snapshot.lane(), snapshot);
+                synchronized (policyLock) {
+                    detectorSnapshots.put(snapshot.lane(), snapshot);
+                }
             }
         });
+    }
+
+    /** Called on the renderer thread to guarantee one exact decision per displayed frame. */
+    void materializeRendererDecision(FrameTimestamp timestamp) {
+        Objects.requireNonNull(timestamp, "timestamp");
+        FramePrivacyDecision decision;
+        synchronized (policyLock) {
+            decision = materializeFrameDecision(timestamp);
+        }
+        if (decision != null) {
+            dispatch(() -> applyDecisionState(decision));
+        }
     }
 
     /** Keeps startup or a dropped analysis frame shielded without making recovery impossible. */
@@ -288,6 +313,7 @@ public final class LiveSessionCoordinator
     /** Callback target for the renderer's non-pixel readiness listener. */
     public void onRendererReadiness(PrivacySurfaceProcessor.Readiness readiness) {
         Objects.requireNonNull(readiness, "readiness");
+        AppDiagnostics.state(AppDiagnostics.Event.COORDINATOR_RENDERER_STATE, readiness);
         dispatch(() -> {
             boolean ready = readiness == PrivacySurfaceProcessor.Readiness.READY;
             rendererReady = ready;
@@ -299,6 +325,7 @@ public final class LiveSessionCoordinator
     /** Callback target for the encoder's payload-free lifecycle listener. */
     public void onEncoderState(SanitizedVideoOutput.State state, boolean encoderReady) {
         Objects.requireNonNull(state, "state");
+        AppDiagnostics.state(AppDiagnostics.Event.COORDINATOR_ENCODER_STATE, state);
         dispatch(() -> {
             stopPublicationOnPrivacyLoss(encoderReady);
             setComponentReady(LiveSessionStateMachine.RequiredComponent.ENCODER, encoderReady);
@@ -315,6 +342,7 @@ public final class LiveSessionCoordinator
             LiveSessionStateMachine.RequiredComponent component, Throwable failure) {
         Objects.requireNonNull(component, "component");
         Objects.requireNonNull(failure, "failure");
+        AppDiagnostics.failure(AppDiagnostics.Event.COORDINATOR_COMPONENT_FAILED, failure);
         dispatch(() -> failAndStop(component, failure));
     }
 
@@ -457,11 +485,15 @@ public final class LiveSessionCoordinator
         hasFaceState = true;
         latestFaceTimestamp = faceState.timestamp();
         if (faceState.fullShieldRequired()) {
-            decisionStore.store(FramePrivacyDecision.fullShield(
-                    faceState.timestamp(), FramePrivacyDecision.Basis.ERROR));
-            detectorSnapshots.clear();
-            policySession.reset();
-            latestTracks = List.of();
+            synchronized (policyLock) {
+                if (!hasDecision || faceState.timestamp().compareTo(latestDecisionTimestamp) > 0) {
+                    storeDecision(FramePrivacyDecision.fullShield(
+                            faceState.timestamp(), FramePrivacyDecision.Basis.ERROR));
+                }
+                detectorSnapshots.clear();
+                policySession.reset();
+                latestTracks = List.of();
+            }
             boolean hostWasSelected = hostSelection.selectedTrackId().isPresent();
             hostSelection.revokeSelection();
             stateMachine.revokeHost();
@@ -472,25 +504,65 @@ public final class LiveSessionCoordinator
             setupView.showSelectableFaces(List.of(), null);
             return;
         }
-        FramePrivacyDecision decision = privacyPolicy == null
-                ? FramePrivacyDecision.regionalSafe(
-                        faceState.timestamp(),
-                        faceState.protectedRegions(),
-                        FramePrivacyDecision.Basis.FRESH,
-                        faceState.timestamp().plusNanos(FACE_DECISION_VALIDITY_NANOS))
-                : privacyPolicy.decide(
-                        faceState.timestamp(),
-                        List.copyOf(detectorSnapshots.values()),
-                        faceState.tracks(),
-                        privacyConfiguration.get(),
-                        currentHealth(faceState.timestamp()));
-        decisionStore.store(decision);
-        latestTracks = faceState.tracks();
-        if (faceState.hostContinuityLost()) {
-            hostSelection.revokeSelection();
-            stateMachine.revokeHost();
-            requireHostReselection();
+        synchronized (policyLock) {
+            latestTracks = faceState.tracks();
         }
+        if (isAlreadyDecided(faceState.timestamp())) {
+            updateFaceUi(faceState);
+            return;
+        }
+        FramePrivacyDecision decision;
+        synchronized (policyLock) {
+            decision = privacyPolicy == null
+                    ? FramePrivacyDecision.regionalSafe(
+                            faceState.timestamp(),
+                            faceState.protectedRegions(),
+                            FramePrivacyDecision.Basis.FRESH,
+                            faceState.timestamp().plusNanos(FACE_DECISION_VALIDITY_NANOS))
+                    : privacyPolicy.decide(
+                            faceState.timestamp(),
+                            List.copyOf(detectorSnapshots.values()),
+                            faceState.tracks(),
+                            privacyConfiguration.get(),
+                            currentHealth(faceState.timestamp()));
+            storeDecision(decision);
+        }
+        applyDecisionState(decision);
+        updateFaceUi(faceState);
+    }
+
+    private FramePrivacyDecision materializeFrameDecision(FrameTimestamp timestamp) {
+        if (closed || privacyPolicy == null
+                || (hasDecision && timestamp.compareTo(latestDecisionTimestamp) <= 0)) {
+            return null;
+        }
+        FramePrivacyDecision decision = privacyPolicy.decide(
+                timestamp,
+                List.copyOf(detectorSnapshots.values()),
+                latestTracks,
+                privacyConfiguration.get(),
+                currentHealth(timestamp));
+        storeDecision(decision);
+        return decision;
+    }
+
+    private boolean isAlreadyDecided(FrameTimestamp timestamp) {
+        synchronized (policyLock) {
+            return hasDecision && timestamp.compareTo(latestDecisionTimestamp) <= 0;
+        }
+    }
+
+    private void storeDecision(FramePrivacyDecision decision) {
+        decisionStore.store(decision);
+        latestDecisionTimestamp = decision.timestamp();
+        hasDecision = true;
+        if (lastLoggedDecisionBasis != decision.basis()) {
+            lastLoggedDecisionBasis = decision.basis();
+            AppDiagnostics.state(AppDiagnostics.Event.DECISION_BASIS, decision.basis());
+        }
+    }
+
+    private void applyDecisionState(FramePrivacyDecision decision) {
         setComponentReady(
                 LiveSessionStateMachine.RequiredComponent.ANALYSIS,
                 decision.status() == FramePrivacyDecision.Status.REGIONAL_SAFE);
@@ -498,14 +570,33 @@ public final class LiveSessionCoordinator
                 && stateMachine.canResumeLive()) {
             stateMachine.resumeLive(now());
         }
+        refreshReadiness();
+    }
+
+    private void updateFaceUi(FaceAnalysisCoordinator.FaceFrameState faceState) {
+        if (faceState.hostContinuityLost()) {
+            hostSelection.revokeSelection();
+            stateMachine.revokeHost();
+            requireHostReselection();
+        }
         OptionalLong selected = hostSelection.selectedTrackId();
         Long selectedTrack = selected.isPresent() ? selected.getAsLong() : null;
         setupView.showSelectableFaces(toSelectableFaces(latestTracks), selectedTrack);
-        refreshReadiness();
     }
 
     private void selectFreshHost(long trackId) {
         if (closed) {
+            return;
+        }
+        OptionalLong currentSelection = hostSelection.selectedTrackId();
+        if (currentSelection.isPresent() && currentSelection.getAsLong() == trackId) {
+            AppDiagnostics.info(AppDiagnostics.Event.HOST_DESELECTED);
+            hostSelection.revokeSelection();
+            stateMachine.revokeHost();
+            hostReselection.resetSession();
+            setupView.showHostReselectionRequired(false);
+            setupView.showSelectableFaces(toSelectableFaces(latestTracks), null);
+            refreshReadiness();
             return;
         }
         FaceTrackSnapshot selected = latestTracks.stream()
@@ -523,6 +614,9 @@ public final class LiveSessionCoordinator
                     center(selected.bounds()), latestTracks, latestFaceTimestamp);
         }
         stateMachine.acceptHostSelection(result);
+        if (result.status() == HostSelectionResult.Status.SELECTED) {
+            AppDiagnostics.info(AppDiagnostics.Event.HOST_SELECTED);
+        }
         hostReselection.onSelectionResult(result);
         setupView.showHostReselectionRequired(
                 hostReselection.state() == HostReselectionController.State.REQUIRED);
@@ -583,6 +677,7 @@ public final class LiveSessionCoordinator
         if (closed) {
             return;
         }
+        AppDiagnostics.info(AppDiagnostics.Event.COORDINATOR_STOPPED);
         closed = true;
         setupView.showPrivacyReady(false);
         RuntimeException cleanupFailure = null;

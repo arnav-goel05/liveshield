@@ -100,6 +100,24 @@ for path in sources:
             report(path, source_line(text, match.start()), rule, detail)
 
 
+# Production logging is centralized in reviewed, payload-free sinks. This prevents a future
+# troubleshooting edit from accidentally logging OCR text, watchlists, endpoints, pixels, or
+# secret-bearing exception messages directly from a feature class.
+approved_log_sinks = {
+    "app/src/main/java/com/liveshield/app/diagnostics/AppDiagnostics.java",
+    "video-pipeline/src/main/java/com/liveshield/video/diagnostics/VideoDiagnostics.java",
+    "vision/src/main/java/com/liveshield/vision/face/OfflineFaceDiagnostics.java",
+}
+for path in sources:
+    rel = relative(path)
+    text = strip_comments(path.read_text(encoding="utf-8", errors="replace"))
+    if rel not in approved_log_sinks:
+        match = re.search(r"\b(?:android\.util\.)?Log\s*\.", text)
+        if match:
+            report(path, source_line(text, match.start()), "NO_DIRECT_PRODUCTION_LOG",
+                   "production logs must use a reviewed payload-free diagnostic sink")
+
+
 # Only the explicit secret owner may accept erasable secret buffers. No publisher, controller,
 # health record, or telemetry API may expose secret-bearing data. StreamDestination is deliberately
 # named rather than broadly excluding a directory, so a second secret owner cannot appear unnoticed.
@@ -173,5 +191,5 @@ if violations:
     print(f"privacy-boundary: FAILED ({len(set(violations))} violation(s))", file=sys.stderr)
     sys.exit(1)
 
-print("privacy-boundary: PASS (first-party APIs, audio paths, and effective manifests)")
+print("privacy-boundary: PASS (first-party APIs, logs, audio paths, and effective manifests)")
 PY

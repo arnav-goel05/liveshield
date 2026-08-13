@@ -12,6 +12,7 @@ import android.opengl.GLUtils;
 import com.liveshield.privacy.decision.FramePrivacyDecision;
 import com.liveshield.privacy.model.NormalizedRect;
 import com.liveshield.privacy.model.ProtectedRegion;
+import com.liveshield.video.diagnostics.VideoDiagnostics;
 import com.liveshield.video.geometry.FrameTransform;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -117,7 +118,16 @@ public final class GlRedactionRenderer {
         try {
             for (ProtectedRegion region : decision.regions()) {
                 for (NormalizedRect bounds : region.bounds()) {
-                    result.add(transform.mapSensorRectToOutput(bounds));
+                    VideoDiagnostics.bounds(
+                            VideoDiagnostics.Event.MASK_SENSOR_BOUNDS,
+                            region.category(),
+                            bounds.left(), bounds.top(), bounds.right(), bounds.bottom());
+                    NormalizedRect output = transform.mapSensorRectToOutput(bounds);
+                    VideoDiagnostics.bounds(
+                            VideoDiagnostics.Event.MASK_OUTPUT_BOUNDS,
+                            region.category(),
+                            output.left(), output.top(), output.right(), output.bottom());
+                    result.add(output);
                     if (result.size() > MAX_PROTECTED_BOUNDS) {
                         return null;
                     }

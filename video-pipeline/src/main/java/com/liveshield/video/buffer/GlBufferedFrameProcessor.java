@@ -90,7 +90,7 @@ public final class GlBufferedFrameProcessor implements BufferedFrameProcessor {
         while (!pending.isEmpty()) {
             PendingFrame frame = pending.peekFirst();
             if (now.compareTo(frame.cameraTimestamp) < 0) {
-                throw new IllegalArgumentException("now cannot precede a queued camera timestamp");
+                return;
             }
             FramePrivacyDecision decision = decisions.lookup(frame.cameraTimestamp, now);
             boolean awaitingExactDecision = decision.basis() == FramePrivacyDecision.Basis.MISSING
@@ -117,6 +117,25 @@ public final class GlBufferedFrameProcessor implements BufferedFrameProcessor {
                 return;
             }
         }
+    }
+
+    /**
+     * Processes only work whose own camera-domain deadline has arrived.
+     *
+     * <p>A frame can complete before its scheduled callback runs. In that case a newer frame may
+     * already be at the queue head, and the older callback must be ignored instead of treating its
+     * timestamp as time moving backwards.</p>
+     */
+    public synchronized void processDeadline(FrameTimestamp deadline) {
+        Objects.requireNonNull(deadline, "deadline");
+        if (closed || unsafeRecovery || pending.isEmpty()) {
+            return;
+        }
+        PendingFrame frame = pending.peekFirst();
+        if (deadline.compareTo(frame.deadline) < 0) {
+            return;
+        }
+        processReady(deadline);
     }
 
     /**

@@ -35,7 +35,10 @@ public final class StreamDestinationFragment extends Fragment {
             throw new IllegalStateException("Stream destination host must implement Listener");
         }
         listener = (Listener) context;
-        requireActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        if (!(requireActivity() instanceof SetupActivity setupActivity)
+                || !setupActivity.isDebugScreenCaptureAllowed()) {
+            requireActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+        }
     }
 
     @Override

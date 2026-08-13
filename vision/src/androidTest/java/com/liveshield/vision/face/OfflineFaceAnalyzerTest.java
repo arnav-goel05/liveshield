@@ -39,24 +39,25 @@ public final class OfflineFaceAnalyzerTest {
     }
 
     @Test
-    public void oneFacePreservesTimestampMapsTransformAndClosesImageProxyOnce() throws Exception {
+    public void oneFaceMapsAnalysisBufferBackToSensorAndClosesImageProxyOnce() throws Exception {
         FakeEngine engine = FakeEngine.success(List.of(
-                new OfflineFaceAnalyzer.DetectedFace(new Rect(10, 20, 30, 40), 17L)));
+                new OfflineFaceAnalyzer.DetectedFace(new Rect(30, 35, 40, 45), 17L)));
         OfflineFaceAnalyzer analyzer = new OfflineFaceAnalyzer(engine, 50L);
         AtomicInteger proxyCloses = new AtomicInteger();
         FaceAnalysisFrame frame = proxyFrame(100, 100, proxyCloses);
-        CoordinateTransform mirror = new CoordinateTransform(new double[]{
-            -1, 0, 1, 0, 1, 0, 0, 0, 1
+        CoordinateTransform sensorToBuffer = new CoordinateTransform(new double[]{
+            0.5, 0, 0.25, 0, 0.5, 0.25, 0, 0, 1
         });
 
-        DetectorSnapshot snapshot = await(analyzer.analyze(frame, TIMESTAMP, 90, mirror));
+        DetectorSnapshot snapshot = await(analyzer.analyze(
+                frame, TIMESTAMP, 90, sensorToBuffer));
 
         assertEquals(TIMESTAMP, snapshot.sourceTimestamp());
         assertEquals(TIMESTAMP.plusNanos(50), snapshot.validUntil());
         assertEquals(90, engine.rotationDegrees);
         DetectorObservation observation = snapshot.observations().get(0);
         assertEquals(17L, observation.detectorTrackingId().getAsLong());
-        assertEquals(new NormalizedRect(0.7, 0.2, 0.9, 0.4),
+        assertEquals(new NormalizedRect(0.1, 0.2, 0.3, 0.4),
                 observation.region().bounds().get(0));
         assertEquals(1, proxyCloses.get());
         assertFalse(snapshot.failure().isPresent());

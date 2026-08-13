@@ -1,6 +1,7 @@
 package com.liveshield.video.camera;
 
 import android.os.Looper;
+import android.util.Size;
 import androidx.concurrent.futures.CallbackToFutureAdapter;
 import androidx.camera.core.CameraEffect;
 import androidx.camera.core.CameraSelector;
@@ -8,11 +9,14 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.Preview;
 import androidx.camera.core.UseCase;
 import androidx.camera.core.UseCaseGroup;
+import androidx.camera.core.resolutionselector.ResolutionSelector;
+import androidx.camera.core.resolutionselector.ResolutionStrategy;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.video.VideoCapture;
 import androidx.camera.video.VideoOutput;
 import androidx.lifecycle.LifecycleOwner;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.liveshield.video.diagnostics.VideoDiagnostics;
 import com.liveshield.video.output.SanitizedVideoOutput;
 import com.liveshield.video.render.PrivacySurfaceProcessor;
 import java.util.Objects;
@@ -98,6 +102,14 @@ public final class CameraSessionController implements AutoCloseable {
 
         imageAnalysis = new ImageAnalysis.Builder()
                 .setTargetName("LiveShield-OnDevice-Analysis")
+                // CameraX defaults ImageAnalysis to 640x480. The live analyzer is deliberately
+                // non-blocking and bounded to 320x240 so CPU conversion plus offline inference can
+                // complete inside the 100 ms privacy freshness window without stalling Preview.
+                .setResolutionSelector(new ResolutionSelector.Builder()
+                        .setResolutionStrategy(new ResolutionStrategy(
+                                new Size(320, 240),
+                                ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER))
+                        .build())
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                 .build();
         imageAnalysis.setAnalyzer(analysisExecutor, analyzer);
@@ -119,11 +131,14 @@ public final class CameraSessionController implements AutoCloseable {
             throw new IllegalStateException("Camera session is already binding or bound");
         }
         state = State.BINDING;
+        VideoDiagnostics.info(VideoDiagnostics.Event.CAMERA_BIND_REQUESTED);
         return CallbackToFutureAdapter.getFuture(completer -> {
             try {
                 bindingExecutor.execute(() -> performBind(completer));
             } catch (RuntimeException exception) {
                 state = State.UNBOUND;
+                VideoDiagnostics.failure(
+                        VideoDiagnostics.Event.CAMERA_BIND_FAILED, exception);
                 completer.setException(exception);
             }
             return "LiveShield CameraX privacy-group binding";
@@ -151,6 +166,7 @@ public final class CameraSessionController implements AutoCloseable {
                     state = State.UNBOUND;
                 }
             }
+            VideoDiagnostics.failure(VideoDiagnostics.Event.CAMERA_BIND_FAILED, exception);
             result.setException(exception);
             return;
         }
@@ -173,6 +189,7 @@ public final class CameraSessionController implements AutoCloseable {
             result.setException(closedFailure);
             return;
         }
+        VideoDiagnostics.info(VideoDiagnostics.Event.CAMERA_BOUND);
         result.set(null);
     }
 
@@ -199,6 +216,7 @@ public final class CameraSessionController implements AutoCloseable {
             }
         } finally {
             imageAnalysis.clearAnalyzer();
+            VideoDiagnostics.info(VideoDiagnostics.Event.CAMERA_CLOSED);
         }
     }
 

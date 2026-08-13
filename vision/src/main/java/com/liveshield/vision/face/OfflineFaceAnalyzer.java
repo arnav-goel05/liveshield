@@ -184,7 +184,10 @@ public final class OfflineFaceAnalyzer implements VisionAnalyzer, AutoCloseable 
         if (left >= right || top >= bottom) {
             throw new IllegalArgumentException("Detector returned empty face bounds");
         }
-        double[] matrix = transform.matrix();
+        // YuNet returns analysis-buffer coordinates. Privacy decisions use normalized sensor
+        // coordinates so the renderer can map them through its independently cropped preview
+        // buffer. CameraX supplies sensor-to-analysis-buffer metadata, hence the inverse here.
+        double[] matrix = transform.inverse().matrix();
         double[][] corners = {
             mapPoint(matrix, left, top), mapPoint(matrix, right, top),
             mapPoint(matrix, right, bottom), mapPoint(matrix, left, bottom)
@@ -431,7 +434,10 @@ public final class OfflineFaceAnalyzer implements VisionAnalyzer, AutoCloseable 
     }
 
     static final class BundledYuNetEngine implements FaceDetectionEngine {
-        private static final int MAXIMUM_INPUT_EDGE = 640;
+        // Preserve the official YuNet 320-pixel input so borderline and partially visible faces
+        // do not alternate between present and absent. Live cadence is controlled by the
+        // single-flight scheduler rather than by discarding model input detail.
+        private static final int MAXIMUM_INPUT_EDGE = 320;
         private static final float SCORE_THRESHOLD = 0.60F;
         private static final float NMS_THRESHOLD = 0.30F;
         private static final int TOP_K = 5_000;

@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.Test;
 
 public final class VisionSchedulerTest {
@@ -211,6 +212,33 @@ public final class VisionSchedulerTest {
                 () -> new VisionScheduler.Configuration(10, 100, 50, 99, 100, 30, 500));
         assertThrows(IllegalArgumentException.class,
                 () -> new VisionScheduler.Configuration(10, 100, 50, 200, 49, 30, 500));
+        assertThrows(IllegalArgumentException.class,
+                () -> CONFIGURATION.withEnabledLanes(Set.of(DetectorLane.BARCODE)));
+    }
+
+    @Test
+    public void disabledOptionalLaneNeverRetainsPixelsOrDispatchesWork() {
+        FakeAnalyzer face = new FakeAnalyzer(DetectorLane.FACE);
+        FakeAnalyzer text = new FakeAnalyzer(DetectorLane.TEXT);
+        FakeAnalyzer barcode = new FakeAnalyzer(DetectorLane.BARCODE);
+        VisionScheduler scheduler = new VisionScheduler(
+                CONFIGURATION.withEnabledLanes(
+                        Set.of(DetectorLane.FACE, DetectorLane.BARCODE)),
+                face,
+                text,
+                barcode,
+                ignored -> { },
+                (event, lane, timestamp) -> { },
+                () -> 0L);
+
+        FakeFrame frame = new FakeFrame(0L);
+        scheduler.submit(frame, SessionHealth.ThermalState.NOMINAL,
+                SessionHealth.SceneState.STABLE);
+
+        assertTrue(frame.leases.containsKey(DetectorLane.FACE));
+        assertTrue(frame.leases.containsKey(DetectorLane.BARCODE));
+        assertFalse(frame.leases.containsKey(DetectorLane.TEXT));
+        assertTrue(text.requests.isEmpty());
     }
 
     private static DetectorSnapshot success(

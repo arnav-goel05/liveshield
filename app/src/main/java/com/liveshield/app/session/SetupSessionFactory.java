@@ -5,6 +5,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.content.ContextCompat;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.liveshield.app.setup.SetupActivity;
+import com.liveshield.app.diagnostics.AppDiagnostics;
 import com.liveshield.privacy.decision.BoundedFrameDecisionStore;
 import com.liveshield.privacy.decision.FrameDecisionStore;
 import com.liveshield.privacy.host.DefaultHostSelectionController;
@@ -53,6 +54,7 @@ public final class SetupSessionFactory {
         Objects.requireNonNull(activity, "activity");
         Objects.requireNonNull(listener, "listener");
         AtomicBoolean cancelled = new AtomicBoolean();
+        AppDiagnostics.info(AppDiagnostics.Event.SESSION_FACTORY_REQUESTED);
         ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(activity);
         Executor mainExecutor = ContextCompat.getMainExecutor(activity);
         future.addListener(() -> {
@@ -60,8 +62,10 @@ public final class SetupSessionFactory {
                 return;
             }
             try {
+                AppDiagnostics.info(AppDiagnostics.Event.CAMERA_PROVIDER_READY);
                 listener.onCreated(compose(activity, future.get(), mainExecutor));
             } catch (Exception exception) {
+                AppDiagnostics.failure(AppDiagnostics.Event.SESSION_FACTORY_FAILED, exception);
                 listener.onFailure(exception);
             }
         }, mainExecutor);
@@ -75,6 +79,7 @@ public final class SetupSessionFactory {
         ExecutorService renderExecutor = singleThread("LiveShield-Privacy-Render");
         ExecutorService analysisExecutor = singleThread("LiveShield-Face-Analysis");
         try {
+            AppDiagnostics.info(AppDiagnostics.Event.SESSION_GRAPH_COMPOSE_STARTED);
             return composeGraph(
                     activity, provider, mainExecutor, renderExecutor, analysisExecutor);
         } catch (RuntimeException exception) {
@@ -99,6 +104,7 @@ public final class SetupSessionFactory {
         FaceAnalysisCoordinator faces = new FaceAnalysisCoordinator();
         AtomicReference<LiveSessionCoordinator> coordinatorRef = new AtomicReference<>();
         AtomicBoolean transformReady = new AtomicBoolean();
+        AtomicReference<FrameTransform> previewTransform = new AtomicReference<>();
         activity.markPrivacyZoneTransformUnsafe();
         FrameTransform shieldOnlyPlaceholder = FrameTransform.fromCameraMetadata(
                 CoordinateTransform.identity(), new NormalizedRect(0.0, 0.0, 1.0, 1.0),
@@ -111,9 +117,17 @@ public final class SetupSessionFactory {
                         LiveSessionStateMachine.RequiredComponent.RENDERER, failure),
                 readiness -> withCoordinator(coordinatorRef,
                         coordinator -> coordinator.onRendererReadiness(readiness)),
-                ignored -> {
+                transform -> {
+                    previewTransform.set(transform);
                     activity.acceptVerifiedPrivacyZoneTransform();
                     transformReady.set(true);
+                },
+                timestamp -> {
+                    LiveSessionCoordinator coordinator = coordinatorRef.get();
+                    if (coordinator == null) {
+                        throw new IllegalStateException("Coordinator unavailable");
+                    }
+                    coordinator.materializeRendererDecision(timestamp);
                 });
         constructed.add(processor);
         ProductionSafetyHealth safetyHealth = new ProductionSafetyHealth(
@@ -123,6 +137,7 @@ public final class SetupSessionFactory {
                 mainExecutor,
                 new PrivacySafeTelemetry(64),
                 state -> {
+                    AppDiagnostics.state(AppDiagnostics.Event.THERMAL_STATE, state);
                     safetyHealth.updateThermal(state);
                     if (state == SessionHealth.ThermalState.SEVERE) {
                         processor.invalidateForSafety();
@@ -168,11 +183,23 @@ public final class SetupSessionFactory {
         constructed.add(barcodeAnalyzer);
         PriorityTwoPrivacyPolicyEngine policy = priorityTwoPolicy();
         VisionScheduler scheduler = new VisionScheduler(
-                VisionScheduler.Configuration.defaults(),
-                new VisionAnalyzerLaneAdapter(faceAnalyzer, analysisExecutor),
-                new VisionAnalyzerLaneAdapter(textAnalyzer, analysisExecutor),
-                new VisionAnalyzerLaneAdapter(barcodeAnalyzer, analysisExecutor),
+                // OCR/watchlist recognition is formally unsupported after T119 and is excluded
+                // from production authorization. Do not spend the live 100 ms face budget on a
+                // detector whose output cannot authorize regional rendering.
+                VisionScheduler.Configuration.defaults().withEnabledLanes(
+                        Set.of(DetectorLane.FACE, DetectorLane.BARCODE)),
+                new VisionAnalyzerLaneAdapter(faceAnalyzer, Runnable::run),
+                new VisionAnalyzerLaneAdapter(textAnalyzer, Runnable::run),
+                new VisionAnalyzerLaneAdapter(barcodeAnalyzer, Runnable::run),
                 snapshot -> {
+                    if (snapshot.failure().isPresent()) {
+                        AppDiagnostics.state(
+                                AppDiagnostics.Event.DETECTOR_FAILURE, snapshot.lane());
+                    } else {
+                        AppDiagnostics.stateCount(
+                                AppDiagnostics.Event.DETECTOR_SNAPSHOT,
+                                snapshot.lane(), snapshot.observations().size());
+                    }
                     withCoordinator(coordinatorRef, value -> value.onDetectorSnapshot(snapshot));
                     if (snapshot.lane() == DetectorLane.FACE) {
                         withCoordinator(coordinatorRef, value -> value.onFaceState(
@@ -189,6 +216,7 @@ public final class SetupSessionFactory {
                 state -> {
                     safetyHealth.updateScene(state);
                     if (state == SessionHealth.SceneState.CHANGED) {
+                        AppDiagnostics.state(AppDiagnostics.Event.SCENE_CHANGED, state);
                         withCoordinator(coordinatorRef,
                                 LiveSessionCoordinator::onSafetyHealthChanged);
                     }
@@ -209,7 +237,7 @@ public final class SetupSessionFactory {
                         UUID.randomUUID().toString(), Set.of(), List.of())),
                 hostSelection,
                 decisions,
-                activity,
+                new OutputMappedSetupView(activity, previewTransform::get),
                 preview,
                 cameraGraph,
                 output::close,
@@ -237,8 +265,10 @@ public final class SetupSessionFactory {
                 new ProductionLiveSessionUi(activity),
                 safetyHealth);
         coordinatorRef.set(coordinator);
+        AppDiagnostics.info(AppDiagnostics.Event.SESSION_GRAPH_COMPOSED);
         return coordinator;
         } catch (RuntimeException exception) {
+            AppDiagnostics.failure(AppDiagnostics.Event.SESSION_FACTORY_FAILED, exception);
             activity.setPrivacyConfigurationListener(null);
             for (int index = constructed.size() - 1; index >= 0; index--) {
                 closeQuietly(constructed.get(index));
@@ -265,7 +295,10 @@ public final class SetupSessionFactory {
     private static PriorityTwoPrivacyPolicyEngine priorityTwoPolicy() {
         SensitiveFindingPolicy findings = new SensitiveFindingPolicy(
                 new SensitiveFindingPolicy.Configuration(
-                        Set.of(DetectorLane.TEXT, DetectorLane.BARCODE),
+                        // Offline text recognition is an explicitly unsupported boundary after
+                        // the frozen DEVELOPMENT evaluation. Do not let that unavailable lane
+                        // make supported face, barcode, and configured-zone preview unusable.
+                        Set.of(DetectorLane.BARCODE),
                         750_000_000L,
                         1_000_000_000L,
                         0.25,

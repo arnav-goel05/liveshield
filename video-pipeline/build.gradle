@@ -29,6 +29,10 @@ android {
         sourceCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
         targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
     }
+
+    buildFeatures {
+        buildConfig = true
+    }
 }
 
 dependencies {

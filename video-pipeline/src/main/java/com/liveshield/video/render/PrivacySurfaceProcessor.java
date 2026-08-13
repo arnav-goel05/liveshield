@@ -26,6 +26,7 @@ import androidx.camera.core.SurfaceRequest;
 import androidx.core.util.Consumer;
 import com.liveshield.privacy.decision.FrameDecisionStore;
 import com.liveshield.privacy.decision.FramePrivacyDecision;
+import com.liveshield.privacy.model.CoordinateTransform;
 import com.liveshield.privacy.model.FrameTimestamp;
 import com.liveshield.privacy.model.NormalizedRect;
 import com.liveshield.privacy.session.SessionHealth;
@@ -33,6 +34,7 @@ import com.liveshield.video.buffer.GlBufferedFrameProcessor;
 import com.liveshield.video.contract.RawTextureHandle;
 import com.liveshield.video.contract.RedactionRenderer;
 import com.liveshield.video.contract.SanitizedRender;
+import com.liveshield.video.diagnostics.VideoDiagnostics;
 import com.liveshield.video.geometry.CameraGeometry;
 import com.liveshield.video.geometry.FrameTransform;
 import java.nio.ByteBuffer;
@@ -67,6 +69,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
     private final Consumer<Throwable> errorListener;
     private final ReadinessListener readinessListener;
     private final TransformListener transformListener;
+    private final DecisionMaterializer decisionMaterializer;
     private final CameraEffect cameraEffect;
     private final SanitizedOutputCapability capability;
     private final ScheduledExecutorService deadlineScheduler;
@@ -82,6 +85,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
     private CameraGeometry selectedCameraGeometry;
     private SessionHealth.RecoveryState recoveryState = SessionHealth.RecoveryState.SAFE;
     private boolean bufferedRendererFailure;
+    private VideoDiagnostics.RenderMode lastRenderMode;
 
     public PrivacySurfaceProcessor(
             Executor executor,
@@ -108,13 +112,31 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             Consumer<Throwable> errorListener,
             ReadinessListener readinessListener,
             TransformListener transformListener) {
+        this(executor, decisionStore, initialTransform, errorListener, readinessListener,
+                transformListener, ignored -> { });
+    }
+
+    public PrivacySurfaceProcessor(
+            Executor executor,
+            FrameDecisionStore decisionStore,
+            FrameTransform initialTransform,
+            Consumer<Throwable> errorListener,
+            ReadinessListener readinessListener,
+            TransformListener transformListener,
+            DecisionMaterializer decisionMaterializer) {
         this.executor = Objects.requireNonNull(executor, "executor");
         this.decisionStore = Objects.requireNonNull(decisionStore, "decisionStore");
         this.frameTransform = Objects.requireNonNull(initialTransform, "initialTransform");
         this.errorListener = Objects.requireNonNull(errorListener, "errorListener");
         this.readinessListener = Objects.requireNonNull(readinessListener, "readinessListener");
         this.transformListener = Objects.requireNonNull(transformListener, "transformListener");
-        this.cameraEffect = new PrivacyCameraEffect(executor, this, this::reportFailure);
+        this.decisionMaterializer = Objects.requireNonNull(
+                decisionMaterializer, "decisionMaterializer");
+        this.cameraEffect = new PrivacyCameraEffect(executor, this, failure -> {
+            VideoDiagnostics.failure(
+                    VideoDiagnostics.Event.PROCESSOR_CAMERAX_FAILED, failure);
+            reportFailure(failure);
+        });
         this.capability = new SanitizedOutputCapability(this);
         this.deadlineScheduler = Executors.newSingleThreadScheduledExecutor(runnable -> {
             Thread thread = new Thread(runnable, "LiveShield-Raw-Deadline");
@@ -212,9 +234,11 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
     @Override
     public void onInputSurface(SurfaceRequest request) throws ProcessingException {
         Objects.requireNonNull(request, "request");
+        VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_INPUT_REQUESTED);
         synchronized (lock) {
             ensureOpenForCameraX();
             if (inputProvided) {
+                VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_INPUT_DUPLICATE);
                 request.willNotProvideSurface();
                 reportFailure(new IllegalStateException(
                         "Privacy processor accepts exactly one raw input surface"));
@@ -226,13 +250,15 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
         try {
             GlPipeline created = new GlPipeline(
                     request.getResolution().getWidth(),
-                    request.getResolution().getHeight());
+                    request.getResolution().getHeight(),
+                    transformListener);
             GlBufferedFrameProcessor createdProcessor = new GlBufferedFrameProcessor(
                     MAX_RAW_TEXTURES,
                     decisionStore,
                     new PipelineRenderer(created),
                     this::onRecoveryState,
                     this::onBufferedFrameFailure);
+            VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_INPUT_CREATED);
             synchronized (lock) {
                 ensureOpenForCameraX();
                 pipeline = created;
@@ -242,7 +268,13 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                     ignored -> dispatchIncomingFrame());
             request.setTransformationInfoListener(executor,
                     info -> applyCameraTransform(request, info));
-            request.provideSurface(created.inputSurface, executor, result -> close());
+            request.provideSurface(created.inputSurface, executor, result -> {
+                VideoDiagnostics.result(
+                        VideoDiagnostics.Event.PROCESSOR_INPUT_RESULT,
+                        result.getResultCode());
+                close();
+            });
+            VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_INPUT_PROVIDED);
         } catch (RuntimeException exception) {
             synchronized (lock) {
                 inputProvided = false;
@@ -266,14 +298,21 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                 throw new IllegalStateException(
                         "Selected camera metadata must be configured before surface binding");
             }
-            updateFrameTransform(fromCameraXTransformation(
+            FrameTransform inputTransform = fromCameraXTransformation(
                     sensorGeometry,
                     request.getResolution(),
                     transformationInfo.getSensorToBufferTransform(),
                     transformationInfo.getCropRect(),
                     transformationInfo.getRotationDegrees(),
-                    transformationInfo.isMirroring()));
+                    transformationInfo.isMirroring());
+            synchronized (lock) {
+                ensureOpen();
+                frameTransform = inputTransform;
+            }
+            VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_TRANSFORM_READY);
         } catch (RuntimeException exception) {
+            VideoDiagnostics.failure(
+                    VideoDiagnostics.Event.PROCESSOR_TRANSFORM_FAILED, exception);
             reportFailure(exception);
             signalReadiness(Readiness.UNAVAILABLE);
         }
@@ -305,33 +344,50 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                 crop.top / bufferHeight,
                 crop.right / bufferWidth,
                 crop.bottom / bufferHeight);
-        return FrameTransform.fromCameraMetadata(
+        FrameTransform transform = FrameTransform.fromCameraMetadata(
                 FrameTransform.normalizePixelSensorToBuffer(
                         sensorGeometry, bufferSize, cameraMatrix),
                 normalizedCrop,
                 rotationDegrees,
                 mirrored);
+        VideoDiagnostics.transform(
+                VideoDiagnostics.Event.PROCESSOR_SENSOR_TO_OUTPUT,
+                rotationDegrees,
+                mirrored,
+                transform.sensorToOutput().matrix());
+        return transform;
     }
 
     @Override
     public void onOutputSurface(SurfaceOutput output) throws ProcessingException {
         Objects.requireNonNull(output, "output");
+        VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_OUTPUT_REQUESTED);
         GlPipeline current;
+        CameraGeometry sensorGeometry;
         synchronized (lock) {
             ensureOpenForCameraX();
             current = pipeline;
+            sensorGeometry = selectedCameraGeometry;
         }
-        if (current == null) {
+        if (current == null || sensorGeometry == null) {
             output.close();
             throw new ProcessingException();
         }
         try {
+            FrameTransform outputTransform = fromCameraXOutput(
+                    sensorGeometry,
+                    output.getSize(),
+                    output.getSensorToBufferTransform());
             Surface surface = output.getSurface(executor, event -> {
                 if (event.getEventCode() == SurfaceOutput.Event.EVENT_REQUEST_CLOSE) {
                     executor.execute(() -> removeOutput(event.getSurfaceOutput()));
                 }
             });
-            current.addOutput(output, surface);
+            current.addOutput(output, surface, outputTransform);
+            if ((output.getTargets() & CameraEffect.PREVIEW) != 0) {
+                updateFrameTransform(outputTransform);
+            }
+            VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_OUTPUT_ADDED);
         } catch (RuntimeException exception) {
             output.close();
             reportFailure(exception);
@@ -339,9 +395,79 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
         }
     }
 
+    static FrameTransform fromCameraXOutput(
+            CameraGeometry sensorGeometry, Size outputSize, Matrix sensorToOutputBuffer) {
+        CoordinateTransform normalized = FrameTransform.normalizePixelSensorToBuffer(
+                sensorGeometry, outputSize, sensorToOutputBuffer);
+        FrameTransform transform = FrameTransform.fromCameraMetadata(
+                normalized,
+                new NormalizedRect(0.0, 0.0, 1.0, 1.0),
+                0,
+                false);
+        VideoDiagnostics.transform(
+                VideoDiagnostics.Event.PROCESSOR_SENSOR_TO_OUTPUT,
+                0,
+                false,
+                transform.sensorToOutput().matrix());
+        return transform;
+    }
+
+    /**
+     * Maps sensor coordinates into the user-visible top-left preview coordinates.
+     *
+     * <p>{@link SurfaceOutput#updateTransformMatrix(float[], float[])} returns the inverse
+     * texture lookup used by the shader: output GL coordinates to input GL coordinates. Overlay
+     * geometry needs the opposite direction, with Android's top-left Y axis, so both Y axes are
+     * converted and the affine mapping is inverted before composition with sensor-to-buffer.</p>
+     */
+    static FrameTransform toDisplayedOutput(
+            FrameTransform sensorToOutputBuffer, float[] outputTextureMatrix) {
+        Objects.requireNonNull(sensorToOutputBuffer, "sensorToOutputBuffer");
+        Objects.requireNonNull(outputTextureMatrix, "outputTextureMatrix");
+        if (outputTextureMatrix.length != 16) {
+            throw new IllegalArgumentException("Texture transform must contain 16 values");
+        }
+        double a = outputTextureMatrix[0];
+        double b = outputTextureMatrix[4];
+        double c = outputTextureMatrix[12];
+        double d = outputTextureMatrix[1];
+        double e = outputTextureMatrix[5];
+        double f = outputTextureMatrix[13];
+        CoordinateTransform displayToBuffer = new CoordinateTransform(new double[]{
+            a, -b, b + c,
+            -d, e, 1.0 - e - f,
+            0.0, 0.0, 1.0
+        });
+        double[] sensorToDisplay = multiply3(
+                displayToBuffer.inverse().matrix(),
+                sensorToOutputBuffer.sensorToOutput().matrix());
+        FrameTransform displayed = FrameTransform.fromCameraMetadata(
+                new CoordinateTransform(sensorToDisplay),
+                new NormalizedRect(0.0, 0.0, 1.0, 1.0),
+                0,
+                false);
+        VideoDiagnostics.transform(
+                VideoDiagnostics.Event.PROCESSOR_SENSOR_TO_DISPLAY,
+                0,
+                false,
+                displayed.sensorToOutput().matrix());
+        return displayed;
+    }
+
+    private static double[] multiply3(double[] left, double[] right) {
+        double[] result = new double[9];
+        for (int row = 0; row < 3; row++) {
+            for (int column = 0; column < 3; column++) {
+                result[row * 3 + column] = left[row * 3] * right[column]
+                        + left[row * 3 + 1] * right[3 + column]
+                        + left[row * 3 + 2] * right[6 + column];
+            }
+        }
+        return result;
+    }
+
     private void consumeFrame() {
         GlPipeline current;
-        FrameTransform transform;
         GlBufferedFrameProcessor buffer;
         boolean canMapRegions;
         synchronized (lock) {
@@ -349,23 +475,29 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                 return;
             }
             current = pipeline;
-            transform = frameTransform;
             buffer = frameProcessor;
             canMapRegions = transformReady;
         }
+        VideoDiagnostics.FrameStage stage = VideoDiagnostics.FrameStage.RECOVERY;
         try {
             if (buffer.requiresVerifiedRecovery()
                     && !bufferedRendererFailure && current.hasOutputs()) {
                 buffer.verifyRecovery();
             }
-            RawTextureHandle raw = current.copyLatestRawFrame(transform);
+            stage = VideoDiagnostics.FrameStage.COPY;
+            RawTextureHandle raw = current.copyLatestRawFrame();
             FrameTimestamp timestamp = ((GlRawTexture) raw).timestamp;
             FrameTimestamp deadline = safeDeadline(timestamp);
+            decisionMaterializer.materialize(timestamp);
+            stage = VideoDiagnostics.FrameStage.ACCEPT;
             buffer.accept(raw, timestamp, deadline, canMapRegions);
             long lookupNanos = Math.max(timestamp.nanos(), System.nanoTime());
+            stage = VideoDiagnostics.FrameStage.PROCESS;
             buffer.processReady(FrameTimestamp.ofNanos(lookupNanos));
+            stage = VideoDiagnostics.FrameStage.DEADLINE;
             scheduleDeadline(buffer, deadline);
         } catch (RuntimeException exception) {
+            VideoDiagnostics.state(VideoDiagnostics.Event.PROCESSOR_FRAME_FAILED, stage);
             try {
                 buffer.fail(exception);
                 if (current.hasOutputs()) {
@@ -423,15 +555,17 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             }
         }
         try {
-            long nowNanos = Math.max(deadline.nanos(), System.nanoTime());
-            expected.processReady(FrameTimestamp.ofNanos(nowNanos));
+            expected.processDeadline(deadline);
         } catch (RuntimeException failure) {
+            VideoDiagnostics.failure(
+                    VideoDiagnostics.Event.PROCESSOR_DEADLINE_FAILED, failure);
             onBufferedFrameFailure(failure);
             signalReadiness(Readiness.UNAVAILABLE);
         }
     }
 
     private void onRecoveryState(SessionHealth.RecoveryState state) {
+        VideoDiagnostics.state(VideoDiagnostics.Event.PROCESSOR_RECOVERY_STATE, state);
         synchronized (lock) {
             recoveryState = state;
             if (state == SessionHealth.RecoveryState.VERIFIED) {
@@ -441,6 +575,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
     }
 
     private void onBufferedFrameFailure(Throwable failure) {
+        VideoDiagnostics.failure(VideoDiagnostics.Event.PROCESSOR_BUFFER_FAILED, failure);
         synchronized (lock) {
             bufferedRendererFailure = true;
         }
@@ -455,6 +590,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
         }
         if (current != null) {
             current.removeOutput(output);
+            VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_OUTPUT_REMOVED);
             if (!current.hasOutputs()) {
                 signalReadiness(Readiness.UNAVAILABLE);
             }
@@ -475,6 +611,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
     }
 
     private void reportFailure(Throwable failure) {
+        VideoDiagnostics.failure(VideoDiagnostics.Event.PROCESSOR_FAILURE, failure);
         errorListener.accept(Objects.requireNonNull(failure, "failure"));
     }
 
@@ -485,7 +622,20 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             readiness = next;
         }
         if (changed) {
+            VideoDiagnostics.state(
+                    VideoDiagnostics.Event.PROCESSOR_READINESS_CHANGED, next);
             readinessListener.onReadinessChanged(next);
+        }
+    }
+
+    private void signalRenderMode(VideoDiagnostics.RenderMode next) {
+        boolean changed;
+        synchronized (lock) {
+            changed = lastRenderMode != next;
+            lastRenderMode = next;
+        }
+        if (changed) {
+            VideoDiagnostics.state(VideoDiagnostics.Event.PROCESSOR_RENDER_MODE, next);
         }
     }
 
@@ -521,6 +671,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
         }
         deadlineScheduler.shutdownNow();
         signalReadiness(Readiness.UNAVAILABLE);
+        VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_CLOSED);
     }
 
     private void ensureOpen() {
@@ -567,6 +718,11 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
         void onTransformAvailable(FrameTransform transform);
     }
 
+    /** Creates an exact decision for the renderer timestamp from payload-free policy state. */
+    public interface DecisionMaterializer {
+        void materialize(FrameTimestamp timestamp);
+    }
+
     private static final class PrivacyCameraEffect extends CameraEffect {
         private PrivacyCameraEffect(
                 Executor executor,
@@ -591,6 +747,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                         "Only this renderer's owned raw texture may cross the privacy boundary");
             }
             if (owner.renderRaw(raw, privacyDecision)) {
+                signalRenderMode(VideoDiagnostics.RenderMode.REGIONAL);
                 signalReadiness(Readiness.READY);
             }
             return new SanitizedRender(privacyDecision.timestamp());
@@ -602,6 +759,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                 throw new IllegalArgumentException("Shield renderer requires a full-shield decision");
             }
             if (owner.renderShieldToAll(privacyDecision.timestamp())) {
+                signalRenderMode(VideoDiagnostics.RenderMode.FULL_SHIELD);
                 signalReadiness(Readiness.READY);
             }
             return new SanitizedRender(privacyDecision.timestamp());
@@ -612,18 +770,15 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
         private final GlPipeline owner;
         private final int texture;
         private final FrameTimestamp timestamp;
-        private final FrameTransform frameTransform;
         private final AtomicBoolean closed = new AtomicBoolean();
 
         private GlRawTexture(
                 GlPipeline owner,
                 int texture,
-                FrameTimestamp timestamp,
-                FrameTransform frameTransform) {
+                FrameTimestamp timestamp) {
             this.owner = owner;
             this.texture = texture;
             this.timestamp = timestamp;
-            this.frameTransform = frameTransform;
         }
 
         @Override
@@ -676,13 +831,17 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
         private final Map<SurfaceOutput, OutputTarget> outputs = new IdentityHashMap<>();
         private final SurfaceTexture surfaceTexture;
         private final Surface inputSurface;
+        private final TransformListener displayTransformListener;
 
-        private GlPipeline(int width, int height) {
+        private GlPipeline(
+                int width, int height, TransformListener displayTransformListener) {
             if (width <= 0 || height <= 0) {
                 throw new IllegalArgumentException("Camera input size must be positive");
             }
             this.width = width;
             this.height = height;
+            this.displayTransformListener = Objects.requireNonNull(
+                    displayTransformListener, "displayTransformListener");
             display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
             int[] versions = new int[2];
             if (display == EGL14.EGL_NO_DISPLAY
@@ -735,7 +894,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             checkGl("initialize bounded privacy texture pool");
         }
 
-        private RawTextureHandle copyLatestRawFrame(FrameTransform frameTransform) {
+        private RawTextureHandle copyLatestRawFrame() {
             makeCurrent(pbuffer);
             surfaceTexture.updateTexImage();
             float[] transform = new float[16];
@@ -759,7 +918,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                 GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
                 FrameTimestamp timestamp = FrameTimestamp.ofNanos(
                         Math.max(0L, surfaceTexture.getTimestamp()));
-                return new GlRawTexture(this, destination, timestamp, frameTransform);
+                return new GlRawTexture(this, destination, timestamp);
             } catch (RuntimeException failure) {
                 availableTextures.addLast(destination);
                 throw failure;
@@ -783,10 +942,26 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             for (OutputTarget target : outputs.values()) {
                 makeCurrent(target.eglSurface);
                 target.output.updateTransformMatrix(target.transform, IDENTITY_MATRIX);
+                if (!target.transformLogged) {
+                    target.transformLogged = true;
+                    VideoDiagnostics.transform(
+                            VideoDiagnostics.Event.PROCESSOR_OUTPUT_TEXTURE_MATRIX,
+                            0,
+                            false,
+                            new double[]{
+                                target.transform[0], target.transform[4], target.transform[12],
+                                target.transform[1], target.transform[5], target.transform[13],
+                                0.0, 0.0, 1.0
+                            });
+                    if ((target.output.getTargets() & CameraEffect.PREVIEW) != 0) {
+                        displayTransformListener.onTransformAvailable(
+                                toDisplayedOutput(target.frameTransform, target.transform));
+                    }
+                }
                 drawTexture(textureProgram, GLES20.GL_TEXTURE_2D, raw.texture,
                         target.transform, target.width, target.height);
                 GlRedactionRenderer.applyDecision(
-                        decision, raw.frameTransform, target.width, target.height);
+                        decision, target.frameTransform, target.width, target.height);
                 EGLExt.eglPresentationTimeANDROID(
                         display, target.eglSurface, raw.timestamp.nanos());
                 if (!EGL14.eglSwapBuffers(display, target.eglSurface)) {
@@ -824,7 +999,8 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             availableTextures.addLast(texture);
         }
 
-        private void addOutput(SurfaceOutput output, Surface surface) {
+        private void addOutput(
+                SurfaceOutput output, Surface surface, FrameTransform frameTransform) {
             makeCurrent(pbuffer);
             EGLSurface eglSurface = EGL14.eglCreateWindowSurface(
                     display, config, surface, new int[]{EGL14.EGL_NONE}, 0);
@@ -834,7 +1010,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             }
             OutputTarget replaced = outputs.put(output, new OutputTarget(
                     output, surface, eglSurface,
-                    output.getSize().getWidth(), output.getSize().getHeight()));
+                    output.getSize().getWidth(), output.getSize().getHeight(), frameTransform));
             if (replaced != null) {
                 replaced.close(display);
             }
@@ -971,19 +1147,23 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             private final EGLSurface eglSurface;
             private final int width;
             private final int height;
+            private final FrameTransform frameTransform;
             private final float[] transform = IDENTITY_MATRIX.clone();
+            private boolean transformLogged;
 
             private OutputTarget(
                     SurfaceOutput output,
                     Surface surface,
                     EGLSurface eglSurface,
                     int width,
-                    int height) {
+                    int height,
+                    FrameTransform frameTransform) {
                 this.output = output;
                 this.surface = surface;
                 this.eglSurface = eglSurface;
                 this.width = width;
                 this.height = height;
+                this.frameTransform = Objects.requireNonNull(frameTransform, "frameTransform");
             }
 
             private void close(EGLDisplay display) {

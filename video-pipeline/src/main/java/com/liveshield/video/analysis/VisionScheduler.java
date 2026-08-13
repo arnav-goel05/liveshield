@@ -9,6 +9,7 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Bounded, independent scheduling for the face, text, and barcode analysis lanes.
@@ -98,13 +99,23 @@ public final class VisionScheduler implements AutoCloseable {
                         Event.OPTIONAL_LANE_DISABLED);
             }
 
-            startIfEligible(frame, DetectorLane.FACE, thermalState, sceneState);
+            startIfEnabled(frame, DetectorLane.FACE, thermalState, sceneState);
             if (thermalState != SessionHealth.ThermalState.SEVERE) {
-                startIfEligible(frame, DetectorLane.TEXT, thermalState, sceneState);
-                startIfEligible(frame, DetectorLane.BARCODE, thermalState, sceneState);
+                startIfEnabled(frame, DetectorLane.TEXT, thermalState, sceneState);
+                startIfEnabled(frame, DetectorLane.BARCODE, thermalState, sceneState);
             }
         } finally {
             frame.close();
+        }
+    }
+
+    private void startIfEnabled(
+            AnalysisFrame frame,
+            DetectorLane lane,
+            SessionHealth.ThermalState thermalState,
+            SessionHealth.SceneState sceneState) {
+        if (configuration.enabledLanes().contains(lane)) {
+            startIfEligible(frame, lane, thermalState, sceneState);
         }
     }
 
@@ -273,8 +284,10 @@ public final class VisionScheduler implements AutoCloseable {
             long degradedTextIntervalNanos,
             long degradedBarcodeIntervalNanos,
             long faceDeadlineNanos,
-            long maxValidityNanos) {
+            long maxValidityNanos,
+            Set<DetectorLane> enabledLanes) {
         public Configuration {
+            enabledLanes = Set.copyOf(Objects.requireNonNull(enabledLanes, "enabledLanes"));
             if (faceIntervalNanos <= 0
                     || textIntervalNanos <= 0
                     || barcodeIntervalNanos <= 0
@@ -286,17 +299,44 @@ public final class VisionScheduler implements AutoCloseable {
                     || degradedBarcodeIntervalNanos < barcodeIntervalNanos) {
                 throw new IllegalArgumentException("Degraded intervals cannot increase load");
             }
+            if (!enabledLanes.contains(DetectorLane.FACE)) {
+                throw new IllegalArgumentException("The fail-private face lane cannot be disabled");
+            }
+        }
+
+        public Configuration(
+                long faceIntervalNanos,
+                long textIntervalNanos,
+                long barcodeIntervalNanos,
+                long degradedTextIntervalNanos,
+                long degradedBarcodeIntervalNanos,
+                long faceDeadlineNanos,
+                long maxValidityNanos) {
+            this(faceIntervalNanos, textIntervalNanos, barcodeIntervalNanos,
+                    degradedTextIntervalNanos, degradedBarcodeIntervalNanos,
+                    faceDeadlineNanos, maxValidityNanos, Set.copyOf(ANALYSIS_LANES));
         }
 
         public static Configuration defaults() {
             return new Configuration(
-                    66_666_667L,
+                    // CameraX commonly delivers 30 fps at about 33.3 ms. A two-frame interval
+                    // can jitter just below 66.7 ms and be skipped, delaying the next face start
+                    // to the third frame (~100 ms) before inference. Dispatch each available
+                    // frame; the one-in-flight rule still prevents queues and concurrent leases.
+                    33_333_334L,
                     500_000_000L,
                     250_000_000L,
                     1_000_000_000L,
                     500_000_000L,
                     250_000_000L,
-                    1_000_000_000L);
+                    1_000_000_000L,
+                    Set.copyOf(ANALYSIS_LANES));
+        }
+
+        public Configuration withEnabledLanes(Set<DetectorLane> lanes) {
+            return new Configuration(faceIntervalNanos, textIntervalNanos, barcodeIntervalNanos,
+                    degradedTextIntervalNanos, degradedBarcodeIntervalNanos,
+                    faceDeadlineNanos, maxValidityNanos, lanes);
         }
 
         private long intervalNanos(

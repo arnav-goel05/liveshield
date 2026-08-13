@@ -14,6 +14,7 @@ import androidx.camera.core.impl.Observable;
 import androidx.camera.video.MediaSpec;
 import androidx.camera.video.VideoOutput;
 import androidx.core.util.Consumer;
+import com.liveshield.video.diagnostics.VideoDiagnostics;
 import com.liveshield.video.render.PrivacySurfaceProcessor;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -88,6 +89,7 @@ public final class SanitizedVideoOutput implements VideoOutput, AutoCloseable {
     @Override
     public void onSurfaceRequested(SurfaceRequest request) {
         Objects.requireNonNull(request, "request");
+        VideoDiagnostics.info(VideoDiagnostics.Event.ENCODER_SURFACE_REQUESTED);
         synchronized (lock) {
             try {
                 lifecycle.beginRequest();
@@ -106,17 +108,20 @@ public final class SanitizedVideoOutput implements VideoOutput, AutoCloseable {
             session = EncoderSession.create(
                     resolution.getWidth(), resolution.getHeight(), settings, sink,
                     this::onCodecConfigured, this::onEncoderFailure);
+            VideoDiagnostics.info(VideoDiagnostics.Event.ENCODER_SESSION_CREATED);
             synchronized (lock) {
                 activeSession = session;
                 lifecycle.started();
             }
             notifyLifecycleListener();
             session.start();
+            VideoDiagnostics.info(VideoDiagnostics.Event.ENCODER_STARTED);
             EncoderSession providedSession = session;
             request.provideSurface(
                     session.inputSurface(),
                     Runnable::run,
                     result -> onSurfaceDetached(request, providedSession));
+            VideoDiagnostics.info(VideoDiagnostics.Event.ENCODER_SURFACE_PROVIDED);
         } catch (RuntimeException | IOException exception) {
             request.willNotProvideSurface();
             if (session != null) {
@@ -136,6 +141,7 @@ public final class SanitizedVideoOutput implements VideoOutput, AutoCloseable {
     }
 
     private void onSurfaceDetached(SurfaceRequest request, EncoderSession session) {
+        VideoDiagnostics.info(VideoDiagnostics.Event.ENCODER_SURFACE_DETACHED);
         synchronized (lock) {
             if (activeRequest == request) {
                 lifecycle.surfaceDetached();
@@ -175,12 +181,14 @@ public final class SanitizedVideoOutput implements VideoOutput, AutoCloseable {
                 codecConfigured = true;
             }
         }
+        VideoDiagnostics.info(VideoDiagnostics.Event.ENCODER_CODEC_CONFIGURED);
         notifyLifecycleListener();
     }
 
     private void reportFailure(Throwable failure) {
         // Synchronous startup failures use CameraX's request thread. Asynchronous codec failures
         // use the dedicated LiveShield-H264-Output drain thread. Listeners must hand off UI work.
+        VideoDiagnostics.failure(VideoDiagnostics.Event.ENCODER_FAILURE, failure);
         errorListener.accept(Objects.requireNonNull(failure, "failure"));
     }
 
@@ -208,6 +216,7 @@ public final class SanitizedVideoOutput implements VideoOutput, AutoCloseable {
             session.close();
         }
         sink.close();
+        VideoDiagnostics.info(VideoDiagnostics.Event.ENCODER_CLOSED);
     }
 
     /** True only after the hardware codec has emitted a valid AVC output configuration. */

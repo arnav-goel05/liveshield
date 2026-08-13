@@ -12,8 +12,10 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.fragment.app.FragmentActivity;
+import com.liveshield.app.BuildConfig;
 import com.liveshield.app.R;
 import com.liveshield.app.session.CameraSessionGraph;
+import com.liveshield.app.diagnostics.AppDiagnostics;
 import com.liveshield.app.session.LiveSessionCoordinator;
 import com.liveshield.app.session.SetupSessionFactory;
 import com.liveshield.privacy.policy.SessionPrivacyConfigurationView;
@@ -30,6 +32,8 @@ public final class SetupActivity extends FragmentActivity
     private static final String SETUP_CREATE_TRACE = "LiveShieldSetupCreate";
     private static final String DISCLOSURE_ACCEPTED_STATE = "scopeDisclosureAccepted";
     private static final String DISCLOSURE_FRAGMENT_TAG = "scope-disclosure";
+    static final String DEBUG_ALLOW_SCREEN_CAPTURE =
+            "com.liveshield.app.debug.ALLOW_SCREEN_CAPTURE";
     private static final CameraPermissionPort SYSTEM_CAMERA_PERMISSION =
             new CameraPermissionPort() {
                 @Override
@@ -85,7 +89,11 @@ public final class SetupActivity extends FragmentActivity
         try {
             super.onCreate(savedInstanceState);
             setContentView(R.layout.activity_setup);
-            getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            boolean debugCaptureRequested = getIntent().getBooleanExtra(
+                    DEBUG_ALLOW_SCREEN_CAPTURE, false);
+            if (!allowDebugScreenCapture(BuildConfig.DEBUG, debugCaptureRequested)) {
+                getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
+            }
             setupContent = findViewById(R.id.setup_content);
             scopeDisclosureContainer = findViewById(R.id.scope_disclosure_container);
             sanitizedPreviewContainer = findViewById(R.id.sanitized_preview_container);
@@ -124,6 +132,16 @@ public final class SetupActivity extends FragmentActivity
         } finally {
             Trace.endSection();
         }
+    }
+
+    static boolean allowDebugScreenCapture(boolean debugBuild, boolean explicitlyRequested) {
+        return debugBuild && explicitlyRequested;
+    }
+
+    boolean isDebugScreenCaptureAllowed() {
+        return allowDebugScreenCapture(
+                BuildConfig.DEBUG,
+                getIntent().getBooleanExtra(DEBUG_ALLOW_SCREEN_CAPTURE, false));
     }
 
     @Override
@@ -299,6 +317,9 @@ public final class SetupActivity extends FragmentActivity
             return;
         }
         boolean granted = cameraPermissionPort.isGranted(this);
+        AppDiagnostics.info(granted
+                ? AppDiagnostics.Event.CAMERA_PERMISSION_GRANTED
+                : AppDiagnostics.Event.CAMERA_PERMISSION_DENIED);
         readiness = readiness.withCameraPermission(granted);
         if (permissionStatus != null) {
             permissionStatus.setText(granted
@@ -326,6 +347,7 @@ public final class SetupActivity extends FragmentActivity
                     @Override
                     public void onCreated(LiveSessionCoordinator coordinator) {
                         pendingCreation = null;
+                        AppDiagnostics.info(AppDiagnostics.Event.SESSION_FACTORY_CREATED);
                         if (uiContractHarnessInstalledForTest || isFinishing() || isDestroyed()) {
                             coordinator.close();
                             return;
@@ -336,6 +358,8 @@ public final class SetupActivity extends FragmentActivity
                     @Override
                     public void onFailure(Throwable failure) {
                         pendingCreation = null;
+                        AppDiagnostics.failure(
+                                AppDiagnostics.Event.SESSION_FACTORY_FAILED, failure);
                         if (uiContractHarnessInstalledForTest) {
                             return;
                         }

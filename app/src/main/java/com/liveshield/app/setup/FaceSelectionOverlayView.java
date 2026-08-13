@@ -1,54 +1,31 @@
 package com.liveshield.app.setup;
 
 import android.content.Context;
-import android.graphics.Canvas;
-import android.graphics.Paint;
 import android.graphics.RectF;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import com.liveshield.app.R;
+import com.liveshield.app.diagnostics.AppDiagnostics;
 import java.util.List;
 
-/** Draws selectable geometry over an already-sanitized preview; it never owns a camera surface. */
+/** Provides invisible hit targets over face masks; it never draws over the sanitized preview. */
 public final class FaceSelectionOverlayView extends View {
-    private static final float STROKE_WIDTH_DP = 3.0f;
-    private static final int AVAILABLE_COLOR = 0xFFE8EEF2;
-    private static final int SELECTED_COLOR = 0xFF00C2A8;
-
-    private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private List<SelectableFace> faces = List.of();
-    private Long selectedTrackId;
     private SelectionListener listener = ignored -> { };
 
     public FaceSelectionOverlayView(Context context, AttributeSet attributes) {
         super(context, attributes);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth(STROKE_WIDTH_DP * getResources().getDisplayMetrics().density);
+        setWillNotDraw(true);
         setContentDescription(getResources().getString(R.string.face_selection_overlay_description));
     }
 
     public void showFaces(List<SelectableFace> newFaces, Long selectedTrack) {
         faces = List.copyOf(newFaces);
-        selectedTrackId = selectedTrack;
-        invalidate();
     }
 
     public void setSelectionListener(SelectionListener newListener) {
         listener = newListener == null ? ignored -> { } : newListener;
-    }
-
-    @Override
-    protected void onDraw(Canvas canvas) {
-        super.onDraw(canvas);
-        for (SelectableFace face : faces) {
-            if (!face.fresh()) {
-                continue;
-            }
-            paint.setColor(Long.valueOf(face.trackId()).equals(selectedTrackId)
-                    ? SELECTED_COLOR : AVAILABLE_COLOR);
-            canvas.drawRect(toPixels(face), paint);
-        }
     }
 
     @Override
@@ -59,11 +36,13 @@ public final class FaceSelectionOverlayView extends View {
         for (int index = faces.size() - 1; index >= 0; index--) {
             SelectableFace face = faces.get(index);
             if (face.fresh() && toPixels(face).contains(event.getX(), event.getY())) {
+                AppDiagnostics.info(AppDiagnostics.Event.FACE_MASK_TAP_HIT);
                 performClick();
                 listener.onFaceSelected(face.trackId());
                 return true;
             }
         }
+        AppDiagnostics.info(AppDiagnostics.Event.FACE_MASK_TAP_MISS);
         return true;
     }
 

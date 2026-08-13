@@ -21,6 +21,10 @@ android {
         targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     buildTypes {
         benchmark {
             initWith release

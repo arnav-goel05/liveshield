@@ -185,7 +185,8 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
         double top = 1.0;
         double right = 0.0;
         double bottom = 0.0;
-        double[] matrix = transform.matrix();
+        // ZXing geometry is in the analysis buffer; emit the shared sensor-space contract.
+        double[] matrix = transform.inverse().matrix();
         for (NormalizedPoint point : polygon) {
             double[] mapped = mapPoint(matrix, point.x(), point.y());
             left = Math.min(left, mapped[0]);

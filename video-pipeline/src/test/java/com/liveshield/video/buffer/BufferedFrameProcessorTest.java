@@ -69,6 +69,40 @@ public final class BufferedFrameProcessorTest {
     }
 
     @Test
+    public void completedFramesLeaveHarmlessStaleDeadlineCallbacks() {
+        TestRawTexture completed = accept(10, 20);
+        decisions.store(regional(10, 30));
+        processor.processReady(timestamp(10));
+        TestRawTexture newer = accept(30, 40);
+
+        processor.processDeadline(timestamp(20));
+
+        assertEquals(List.of(10L), renderer.rendered);
+        assertEquals(1, processor.queuedFrameCount());
+        assertEquals(1, completed.closeCount.get());
+        assertEquals(0, newer.closeCount.get());
+
+        processor.processDeadline(timestamp(40));
+
+        assertEquals(List.of(30L), renderer.shielded);
+        assertEquals(1, newer.closeCount.get());
+    }
+
+    @Test
+    public void deadlineProcessesEligibleHeadWithoutRejectingLaterCameraFrame() {
+        TestRawTexture eligible = accept(10, 20);
+        TestRawTexture later = accept(30, 40);
+        decisions.store(regional(10, 30));
+
+        processor.processDeadline(timestamp(20));
+
+        assertEquals(List.of(10L), renderer.rendered);
+        assertEquals(1, processor.queuedFrameCount());
+        assertEquals(1, eligible.closeCount.get());
+        assertEquals(0, later.closeCount.get());
+    }
+
+    @Test
     public void timeoutDiscardsEveryPreShieldFrameInsteadOfFlushingOnRecovery() {
         TestRawTexture expired = accept(10, 20);
         TestRawTexture later = accept(11, 30);

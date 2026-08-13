@@ -92,6 +92,8 @@ final class ImageProxyVisionFrame implements VisionScheduler.AnalysisFrame {
         private final FrameTimestamp timestamp;
         private final int rotationDegrees;
         private final CoordinateTransform transform;
+        private final int sourceWidth;
+        private final int sourceHeight;
         private final AtomicBoolean closed = new AtomicBoolean();
         private Bitmap bitmap;
 
@@ -104,6 +106,8 @@ final class ImageProxyVisionFrame implements VisionScheduler.AnalysisFrame {
             this.rotationDegrees = rotationDegrees;
             this.transform = transform;
             this.bitmap = Objects.requireNonNull(bitmap, "bitmap");
+            sourceWidth = bitmap.getWidth();
+            sourceHeight = bitmap.getHeight();
         }
 
         @Override
@@ -141,13 +145,13 @@ final class ImageProxyVisionFrame implements VisionScheduler.AnalysisFrame {
         @Override
         public synchronized int width() {
             requireOpen();
-            return bitmap.getWidth();
+            return sourceWidth;
         }
 
         @Override
         public synchronized int height() {
             requireOpen();
-            return bitmap.getHeight();
+            return sourceHeight;
         }
 
         @Override

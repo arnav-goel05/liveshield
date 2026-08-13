@@ -18,8 +18,8 @@
     <string name="setup_scope_notice">For a controlled indoor space. Review the protected preview before starting.</string>
     <string name="sanitized_preview_description">Sanitized camera preview area</string>
     <string name="sanitized_preview_waiting">Sanitized preview is not connected yet. Camera imagery stays hidden.</string>
-    <string name="face_selection_overlay_description">Fresh detected faces available for explicit host selection</string>
-    <string name="host_selection_instruction">Tap your fresh face outline to select the session host. LiveShield does not identify people or transfer permission automatically.</string>
+    <string name="face_selection_overlay_description">Tap a fresh black face mask to toggle session-host selection</string>
+    <string name="host_selection_instruction">Tap your fresh black face mask to select or deselect the session host. LiveShield does not identify people or transfer permission automatically.</string>
     <string name="start_protected_live">Start protected LIVE</string>
 
     <string name="privacy_status_label">Private protection status</string>

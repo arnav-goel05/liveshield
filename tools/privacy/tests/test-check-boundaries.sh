@@ -10,7 +10,7 @@ new_fixture() {
   local root="$TEMP_ROOT/$name"
   mkdir -p "$root/transport/src/main/java/example" \
     "$root/privacy-domain/src/main/java/example/telemetry" \
-    "$root/app/src/main" \
+    "$root/app/src/main/java/example" \
     "$root/vendor/src/main/java/thirdparty"
   printf '%s\n' '<manifest package="example" />' > "$root/app/src/main/AndroidManifest.xml"
   printf '%s\n' 'package example; public interface Publisher { byte[] publish(byte[] sanitizedPayload); }' \
@@ -84,5 +84,10 @@ audio_encoder=$(new_fixture audio-encoder)
 printf '%s\n' 'package example; final class Encoder { Object create() { return android.media.MediaFormat.createAudioFormat("audio/aac", 48000, 1); } }' \
   > "$audio_encoder/transport/src/main/java/example/Encoder.java"
 expect_failure "$audio_encoder" NO_AUDIO_ENCODER
+
+direct_log=$(new_fixture direct-log)
+printf '%s\n' 'package example; final class CameraFeature { void fail(Throwable error) { android.util.Log.e("Feature", error.getMessage()); } }' \
+  > "$direct_log/app/src/main/java/example/CameraFeature.java"
+expect_failure "$direct_log" NO_DIRECT_PRODUCTION_LOG
 
 echo "privacy-boundary fixtures: PASS"

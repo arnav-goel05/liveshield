@@ -65,7 +65,7 @@ public final class OcrRegionMapperTest {
                 OPTIONS);
 
         assertEquals(1, regions.size());
-        assertBounds(regions.get(0).polygon(), 0.54, 0.19, 0.66, 0.31);
+        assertBounds(regions.get(0).polygon(), 0.39, 0.79, 0.81, 1.0);
     }
 
     @Test

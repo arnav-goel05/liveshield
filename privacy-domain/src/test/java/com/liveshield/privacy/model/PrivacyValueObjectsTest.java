@@ -1,5 +1,6 @@
 package com.liveshield.privacy.model;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
@@ -115,5 +116,27 @@ public final class PrivacyValueObjectsTest {
 
         assertEquals(1.0, transform.matrix()[0], 0.0);
         assertEquals(1.0, transform.matrix()[4], 0.0);
+    }
+
+    @Test
+    public void coordinateTransformInverseRoundTripsAffineMapping() {
+        CoordinateTransform transform = new CoordinateTransform(new double[]{
+            0.5, 0.0, 0.25,
+            0.0, 0.25, 0.50,
+            0.0, 0.0, 1.0
+        });
+
+        double[] inverse = transform.inverse().matrix();
+
+        assertArrayEquals(new double[]{
+            2.0, 0.0, -0.5,
+            0.0, 4.0, -2.0,
+            0.0, 0.0, 1.0
+        }, inverse, 1.0e-12);
+        assertThrows(IllegalArgumentException.class, () -> new CoordinateTransform(new double[]{
+            0.0, 0.0, 0.0,
+            0.0, 0.0, 0.0,
+            0.0, 0.0, 1.0
+        }).inverse());
     }
 }

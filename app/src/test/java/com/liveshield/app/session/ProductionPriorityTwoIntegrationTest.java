@@ -54,6 +54,25 @@ public final class ProductionPriorityTwoIntegrationTest {
     }
 
     @Test
+    public void boundedDetectorEvidenceMaterializesContinuousExactFrameDecisions() {
+        Fixture fixture = fixture(configuration(List.of(ZONE), true));
+        readyGraph(fixture);
+        publishSuccessfulLanes(fixture, 100L);
+        fixture.coordinator.onFaceState(faceState(100L));
+
+        fixture.coordinator.materializeRendererDecision(FrameTimestamp.ofNanos(150L));
+
+        FramePrivacyDecision carried = fixture.decision(150L);
+        assertEquals(FramePrivacyDecision.Status.REGIONAL_SAFE, carried.status());
+        assertTrue(hasCategory(carried, FindingCategory.FACE));
+        assertTrue(hasCategory(carried, FindingCategory.PRIVACY_ZONE));
+
+        fixture.coordinator.materializeRendererDecision(FrameTimestamp.ofNanos(1_200L));
+        assertEquals(FramePrivacyDecision.Status.FULL_SHIELD,
+                fixture.decision(1_200L).status());
+    }
+
+    @Test
     public void missingPriorityTwoLaneShieldsInsteadOfEmittingFaceOnlyDecision() {
         Fixture fixture = fixture(configuration(List.of(), true));
         readyGraph(fixture);

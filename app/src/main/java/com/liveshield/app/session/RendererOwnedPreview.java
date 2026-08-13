@@ -6,6 +6,7 @@ import android.widget.FrameLayout;
 import androidx.camera.core.Preview;
 import androidx.camera.view.PreviewView;
 import com.liveshield.app.R;
+import com.liveshield.app.diagnostics.AppDiagnostics;
 import java.util.Objects;
 
 /**
@@ -44,6 +45,7 @@ public final class RendererOwnedPreview implements LiveSessionCoordinator.Saniti
         container.addView(previewView, 0, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         attached = true;
+        AppDiagnostics.info(AppDiagnostics.Event.PREVIEW_ATTACHED);
     }
 
     @Override
@@ -57,5 +59,6 @@ public final class RendererOwnedPreview implements LiveSessionCoordinator.Saniti
             placeholder.setVisibility(View.VISIBLE);
         }
         attached = false;
+        AppDiagnostics.info(AppDiagnostics.Event.PREVIEW_CLOSED);
     }
 }
