@@ -1,7 +1,7 @@
 # LiveShield convergence record
 
 **Assessment date:** 2026-08-13  
-**Status:** local convergence complete; T119 is the sole remaining implementation task
+**Status:** implementation effort closed; T119 is explicitly blocked and OCR remains unsupported
 **Intent sources:** [specification](spec.md), [plan](plan.md), [tasks](tasks.md), and
 [constitution](../../.specify/memory/constitution.md)
 
@@ -9,7 +9,8 @@
 
 The fresh code/evidence comparison found and resolved the local production-composition drift that
 was absent from the original implementation phases. No constitutional requirement was weakened.
-The repository is not complete because T119 reached a formally stopped unsupported OCR boundary.
+The bounded prototype implementation effort is closed with T119 explicitly blocked at a formally
+stopped unsupported OCR boundary.
 Physical-device, human-participant, consented-corpus, TikTok, and final benchmark activities were
 retired from the project task ledger by user decision; their absence remains an evidence limitation.
 
@@ -54,15 +55,15 @@ The frozen production/evaluation boundary remains the last complete v3 result re
 - HOLDOUT remains sealed; and
 - SC-002 and SC-009 remain unmet.
 
-No more OCR device work is authorized in the current scope. T119 therefore remains open because
-its success criterion is unsupported; host parity cannot substitute for source/package/runtime,
-104/104 DEVELOPMENT, decoded-output, or one-shot HOLDOUT evidence.
+No more OCR device work is authorized in the current scope. T119 remains unchecked and explicitly
+blocked because its success criterion is unsupported; host parity cannot substitute for
+source/package/runtime, 104/104 DEVELOPMENT, decoded-output, or one-shot HOLDOUT evidence.
 
-## Sole open task
+## Sole blocked task
 
 | Tasks | Owner/boundary | Why still open |
 |---|---|---|
-| T119 | Frozen unsupported success criterion | Host v5 conversion/parity passed, but the API 23 ARM64 runtime build stopped before compilation/AAR; there is no Android accuracy, decoded-output, or HOLDOUT result |
+| T119 | BLOCKED — frozen unsupported success criterion | Automatic text and watchlist results are 0/32 each; host v5 conversion/parity passed, but the API 23 ARM64 runtime build stopped before compilation/AAR and no further OCR/HOLDOUT work is authorized |
 
 The repository-safe deletion audit has a zero consented-record denominator; it does not imply an
 external encrypted store was inspected. See the
@@ -71,5 +72,6 @@ external encrypted store was inspected. See the
 ## Closeout rule
 
 The non-mutating link, task, and claim consistency review found no additional local actionable gap.
-T119 is the only open task. Retired external evidence is not treated as completed and remains an
-honestly stated limitation in the [acceptance matrix](../../docs/verification/acceptance-matrix.md).
+The implementation goal closes with T119 blocked, not completed. Retired external evidence is not
+treated as completed and remains an honestly stated limitation in the
+[acceptance matrix](../../docs/verification/acceptance-matrix.md).

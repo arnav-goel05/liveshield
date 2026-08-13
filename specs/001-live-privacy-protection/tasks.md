@@ -329,7 +329,7 @@ It does not yet claim automatic bystander detection, Priority 2 protection, or T
 ## Phase 10: Convergence
 
 - [x] T118 Add accessible creator-facing session watchlist entry/removal and fixed privacy-zone drawing/editing controls wired to `IndoorPrivacySetupController`, including bounds, clearing, transform-safety, and lifecycle verification per FR-008, US3/AC3, and Constitution IV (missing)
-- [ ] T119 Diagnose and improve the offline OCR, barcode, and configured-watchlist path against development fixtures, freeze the implementation before holdout evaluation, and rerun separate development/holdout plus decoded MediaMTX gates without weakening fail-private behavior per FR-007–FR-009, SC-002, SC-009, and Constitution IV/VI (partial)
+- [ ] T119 **BLOCKED — OCR unsupported by scope decision.** Automatic text and configured-watchlist recognition remain 0/32 each on frozen DEVELOPMENT evidence; QR 8/8 and configured zones 32/32 remain supported. No further OCR device experiments, HOLDOUT access, threshold relaxation, or model/runtime integration is authorized. Reopen only through an explicit future scope decision per FR-007–FR-009, SC-002, SC-009, and Constitution IV/VI (partial)
 
 ## Phase 11: Convergence
 
