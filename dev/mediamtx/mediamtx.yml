@@ -1,0 +1,53 @@
+# LiveShield's development-only, LAN-scoped verification relay.
+#
+# This relay is downstream of the privacy renderer and must receive only
+# sanitized H.264 video. It is intentionally anonymous for local development;
+# do not expose these ports to an untrusted network or reuse this configuration
+# in production.
+
+logLevel: info
+logDestinations: [stdout]
+
+# Keep administrative and persistence surfaces disabled.
+api: no
+metrics: no
+pprof: no
+playback: no
+
+# LiveShield publishes over RTMP and viewers consume over WebRTC. Disable every
+# other ingest/read protocol so the local verification boundary stays narrow.
+rtsp: no
+rtmp: yes
+rtmpAddress: :1935
+rtmpEncryption: "no"
+hls: no
+webrtc: yes
+webrtcAddress: :8889
+webrtcEncryption: no
+webrtcLocalUDPAddress: :8189
+webrtcLocalTCPAddress: ''
+webrtcIPsFromInterfaces: yes
+srt: no
+
+# Anonymous access is acceptable only on the trusted development LAN. Limit it
+# to the one verification path; recording/playback and administrative actions
+# are not granted.
+authMethod: internal
+authInternalUsers:
+  - user: any
+    pass:
+    ips: []
+    permissions:
+      - action: publish
+        path: liveshield
+      - action: read
+        path: liveshield
+
+pathDefaults:
+  source: publisher
+  record: no
+  overridePublisher: no
+
+paths:
+  liveshield:
+

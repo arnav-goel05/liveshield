@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://liveshield.local/schema/consented-capture-ledger.schema.json",
+  "title": "External consented-capture access and retention ledger event",
+  "description": "Store populated records only in encrypted evaluation storage, never in Git.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId", "occurredAt", "assetRef", "authorizationRef", "operatorRef", "operatorRole",
+    "action", "purpose", "outcome", "encryptedStorageRef", "deletionDeadline", "auditStatus"
+  ],
+  "properties": {
+    "eventId": {"$ref": "#/$defs/opaqueRef"},
+    "occurredAt": {"type": "string", "format": "date-time"},
+    "assetRef": {"$ref": "#/$defs/opaqueRef"},
+    "authorizationRef": {"$ref": "#/$defs/opaqueRef"},
+    "operatorRef": {"$ref": "#/$defs/opaqueRef"},
+    "operatorRole": {"enum": ["CAPTURE_CUSTODIAN", "EVALUATOR", "DELETION_VERIFIER"]},
+    "action": {
+      "enum": ["CREATE", "IMPORT", "HASH_VERIFY", "VIEW", "ANNOTATE", "EXPORT_SANITIZED", "REVOKE_ACCESS", "DELETE"]
+    },
+    "purpose": {"enum": ["CAPTURE", "INTEGRITY", "ANNOTATION", "DEVICE_VALIDATION", "DELETION"]},
+    "outcome": {"enum": ["ALLOWED", "DENIED", "COMPLETED", "FAILED"]},
+    "encryptedStorageRef": {"$ref": "#/$defs/opaqueRef"},
+    "deletionDeadline": {"type": "string", "format": "date"},
+    "auditStatus": {"enum": ["PENDING", "DELETED", "WITHDRAWN"]}
+  },
+  "$defs": {
+    "opaqueRef": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"}
+  }
+}
+

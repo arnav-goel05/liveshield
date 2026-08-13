@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:usesCleartextTraffic="true"
+        tools:replace="android:usesCleartextTraffic">
+
+        <!-- Debug-only controls. Production code must not define or assume these flags. -->
+        <meta-data
+            android:name="com.liveshield.debug.FAULT_INJECTION_ENABLED"
+            android:value="true" />
+        <meta-data
+            android:name="com.liveshield.debug.SANITIZED_RECORDING_ENABLED"
+            android:value="true" />
+    </application>
+
+</manifest>

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://liveshield.local/schema/deletion-audit.schema.json",
+  "title": "External consented-capture deletion audit",
+  "description": "Store populated records only in encrypted evaluation storage, never in Git.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "auditId", "assetRef", "authorizationRef", "trigger", "deletionDeadline", "completedAt",
+    "primaryDeleted", "captureAndStagingDeleted", "workingCopiesDeleted", "backupsAddressed",
+    "accessRevoked", "verifiedByRef", "verificationMethod", "result"
+  ],
+  "properties": {
+    "auditId": {"$ref": "#/$defs/opaqueRef"},
+    "assetRef": {"$ref": "#/$defs/opaqueRef"},
+    "authorizationRef": {"$ref": "#/$defs/opaqueRef"},
+    "trigger": {"enum": ["SCHEDULED_DEADLINE", "WITHDRAWAL", "REJECTED_TAKE", "PROTOCOL_VIOLATION"]},
+    "deletionDeadline": {"type": "string", "format": "date"},
+    "completedAt": {"type": "string", "format": "date-time"},
+    "primaryDeleted": {"const": true},
+    "captureAndStagingDeleted": {"const": true},
+    "workingCopiesDeleted": {"const": true},
+    "backupsAddressed": {"const": true},
+    "accessRevoked": {"const": true},
+    "verifiedByRef": {"$ref": "#/$defs/opaqueRef"},
+    "verificationMethod": {"enum": ["ENCRYPTED_INVENTORY_ABSENCE", "STORAGE_AUDIT", "CRYPTOGRAPHIC_ERASURE"]},
+    "result": {"const": "DELETED"}
+  },
+  "$defs": {
+    "opaqueRef": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"}
+  }
+}

@@ -1,0 +1,29 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+    targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+}
+
+
+dependencies {
+    implementation "com.google.zxing:core:${rootProject.ext.versions.zxing}"
+    testImplementation "junit:junit:${rootProject.ext.versions.junit}"
+}
+
+tasks.register('priorityTwoSymbolGeneratorJar', Jar) {
+    group = 'verification'
+    description = 'Builds the offline ZXing QR/Data Matrix fixture generator.'
+    dependsOn classes
+    archiveClassifier = 'priority2-symbol-generator'
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes 'Main-Class': 'com.liveshield.fixtures.pii.OfflineSymbolGenerator'
+    }
+    from sourceSets.main.output
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}

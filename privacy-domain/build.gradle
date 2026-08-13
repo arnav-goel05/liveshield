@@ -1,0 +1,13 @@
+plugins {
+    id 'java-library'
+}
+
+java {
+    sourceCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+    targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+}
+
+
+dependencies {
+    testImplementation "junit:junit:${rootProject.ext.versions.junit}"
+}

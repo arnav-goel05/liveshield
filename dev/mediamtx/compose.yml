@@ -1,0 +1,23 @@
+name: liveshield-mediamtx
+
+services:
+  mediamtx:
+    # Tag documents the release; digest makes every pull immutable.
+    image: bluenviron/mediamtx:1.15.5@sha256:59aaad04627c7c8f40ceb01a5ff1c43f91e01939da147c3419f1aaa0c78d6cf5
+    restart: "no"
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      # Set LIVESHIELD_LAN_IP to this laptop's trusted-LAN address when the
+      # WebRTC viewer runs on another device. localhost supports local viewing.
+      MTX_WEBRTC_ADDITIONALHOSTS: "${LIVESHIELD_LAN_IP:-127.0.0.1}"
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      - "1935:1935"
+      - "8889:8889"
+      - "8189:8189/udp"
+

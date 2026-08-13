@@ -1,0 +1,163 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace = 'com.liveshield.app'
+    compileSdk = rootProject.ext.sdk.compile
+
+    defaultConfig {
+        applicationId = 'com.liveshield.app'
+        minSdk = rootProject.ext.sdk.min
+        targetSdk = rootProject.ext.sdk.target
+        versionCode = 1
+        versionName = '0.1.0'
+        testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+        targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+    }
+
+    buildTypes {
+        benchmark {
+            initWith release
+            debuggable = false
+            signingConfig = signingConfigs.debug
+            matchingFallbacks = ['release']
+        }
+    }
+
+    splits {
+        abi {
+            enable = true
+            reset()
+            include 'arm64-v8a'
+            universalApk = false
+        }
+    }
+
+    lint {
+        // T009 intentionally scaffolds privacy/status resources before the US1 screens consume them.
+        // TODO(T033): Remove this exception when SetupActivity and LiveSessionActivity reference them.
+        disable 'UnusedResources'
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:${rootProject.ext.versions.desugarJdkLibs}"
+    implementation project(':privacy-domain')
+    implementation project(':vision')
+    implementation project(':video-pipeline')
+    implementation project(':transport')
+    implementation "androidx.activity:activity:${rootProject.ext.versions.androidXActivity}"
+    implementation "androidx.fragment:fragment:${rootProject.ext.versions.androidXFragment}"
+    implementation "androidx.camera:camera-core:${rootProject.ext.versions.cameraX}"
+    implementation "androidx.camera:camera-lifecycle:${rootProject.ext.versions.cameraX}"
+    implementation "androidx.camera:camera-view:${rootProject.ext.versions.cameraX}"
+
+    testImplementation "junit:junit:${rootProject.ext.versions.junit}"
+    androidTestImplementation "androidx.test:core:${rootProject.ext.versions.androidXTest}"
+    androidTestImplementation "androidx.test:runner:${rootProject.ext.versions.androidXTest}"
+    androidTestImplementation "androidx.test:rules:${rootProject.ext.versions.androidXTest}"
+    androidTestImplementation "androidx.test.ext:junit:${rootProject.ext.versions.androidXTestJunit}"
+    androidTestImplementation "androidx.test.espresso:espresso-core:${rootProject.ext.versions.espresso}"
+    androidTestUtil "androidx.test:orchestrator:${rootProject.ext.versions.testOrchestrator}"
+}
+
+tasks.register('verifyFaultInjectionDebugOnly') {
+    group = 'verification'
+    description = 'Proves deterministic fault controls cannot enter release sources or classes.'
+    dependsOn 'compileReleaseJavaWithJavac'
+    doLast {
+        File debugController = file(
+                'src/debug/java/com/liveshield/app/debug/FaultInjectionController.java')
+        if (!debugController.isFile()) {
+            throw new GradleException('Debug fault controller is missing from its isolated source set')
+        }
+        File debugManifest = file('src/debug/AndroidManifest.xml')
+        if (!debugManifest.isFile()
+                || !debugManifest.getText('UTF-8').contains(
+                        'com.liveshield.debug.FAULT_INJECTION_ENABLED')) {
+            throw new GradleException('Debug manifest does not explicitly enable fault injection')
+        }
+        fileTree('src/main') {
+            include '**/*.java', '**/*.xml'
+        }.each { source ->
+            if (source.getText('UTF-8').contains('FaultInjectionController')
+                    || source.getText('UTF-8').contains(
+                            'com.liveshield.debug.FAULT_INJECTION_ENABLED')) {
+                throw new GradleException(
+                        "Debug fault injection leaked into production source: ${source}")
+            }
+        }
+        File releaseSource = file('src/release')
+        if (releaseSource.exists()) {
+            fileTree(releaseSource).matching {
+                include '**/*.java', '**/*.xml'
+            }.each { source ->
+                if (source.getText('UTF-8').contains('FaultInjectionController')
+                        || source.getText('UTF-8').contains(
+                                'com.liveshield.debug.FAULT_INJECTION_ENABLED')) {
+                    throw new GradleException(
+                            "Debug fault injection leaked into release source: ${source}")
+                }
+            }
+        }
+        def leakedClasses = fileTree(layout.buildDirectory.dir('intermediates/javac/release')) {
+            include '**/FaultInjectionController*.class'
+        }
+        if (!leakedClasses.isEmpty()) {
+            throw new GradleException(
+                    "Debug fault injection leaked into release classes: ${leakedClasses.files}")
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('verifyFaultInjectionDebugOnly')
+}
+
+tasks.register('verifyReleaseOcrArm64Packaging') {
+    group = 'verification'
+    description = 'Proves the OCR runtime is present only in the supported ARM64 release APK.'
+    dependsOn 'assembleRelease'
+    doLast {
+        List<File> apks = fileTree(layout.buildDirectory.dir('outputs/apk/release')) {
+            include '**/*.apk'
+        }.files.toList()
+        if (apks.size() != 1) {
+            throw new GradleException("Expected one ARM64 release APK, found ${apks}")
+        }
+        java.util.zip.ZipFile apk = new java.util.zip.ZipFile(apks.get(0))
+        try {
+            Set<String> entries = apk.entries().collect { it.name } as Set
+            if (!entries.contains('lib/arm64-v8a/libpaddle_lite_jni.so')) {
+                throw new GradleException('ARM64 release APK is missing Paddle Lite JNI')
+            }
+            if (entries.any { it.startsWith('lib/x86_64/')
+                    || it.startsWith('lib/x86/') || it.startsWith('lib/armeabi-v7a/') }) {
+                throw new GradleException('Release APK advertises an unsupported OCR ABI')
+            }
+            List<String> requiredAssets = [
+                'assets/models/paddleocr/en_PP-OCRv3_det_slim_infer.nb',
+                'assets/models/paddleocr/en_PP-OCRv3_rec_slim_infer.nb',
+                'assets/models/paddleocr/en_dict.txt',
+                'assets/models/paddleocr/licenses/PaddleOCR-LICENSE.txt',
+                'assets/models/paddleocr/licenses/Paddle-Lite-LICENSE.txt'
+            ]
+            List<String> missing = requiredAssets.findAll { !entries.contains(it) }
+            if (!missing.isEmpty()) {
+                throw new GradleException("Release APK is missing OCR assets: ${missing}")
+            }
+        } finally {
+            apk.close()
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('verifyReleaseOcrArm64Packaging')
+}

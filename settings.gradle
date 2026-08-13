@@ -1,0 +1,27 @@
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+        // RootEncoder publishes its pinned Android library through JitPack.
+        maven { url = uri('https://jitpack.io') }
+    }
+}
+
+rootProject.name = 'LiveShield'
+
+include ':app'
+include ':privacy-domain'
+include ':vision'
+include ':video-pipeline'
+include ':transport'
+include ':benchmark'
+include ':test-fixtures'

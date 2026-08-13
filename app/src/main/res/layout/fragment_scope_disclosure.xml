@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:importantForAccessibility="yes">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/scope_disclosure_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/scope_disclosure_title"
+            android:textColor="#FFFFFFFF"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/scope_disclosure_supported"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:accessibilityTraversalAfter="@id/scope_disclosure_title"
+            android:text="@string/scope_disclosure_supported"
+            android:textColor="#FFE8EEF2"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/scope_disclosure_visual_only"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:accessibilityTraversalAfter="@id/scope_disclosure_supported"
+            android:text="@string/scope_disclosure_visual_only"
+            android:textColor="#FFCFD8DC"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/scope_disclosure_no_anonymity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:accessibilityTraversalAfter="@id/scope_disclosure_visual_only"
+            android:text="@string/scope_disclosure_no_anonymity"
+            android:textColor="#FFFFD180"
+            android:textSize="16sp" />
+
+        <TextView
+            android:id="@+id/scope_disclosure_unsupported"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:accessibilityTraversalAfter="@id/scope_disclosure_no_anonymity"
+            android:text="@string/scope_disclosure_unsupported"
+            android:textColor="#FFFFAB91"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/acknowledge_scope_disclosure"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:accessibilityTraversalAfter="@id/scope_disclosure_unsupported"
+            android:text="@string/acknowledge_scope_disclosure" />
+    </LinearLayout>
+</ScrollView>

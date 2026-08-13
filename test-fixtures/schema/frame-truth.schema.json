@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://liveshield.local/schema/frame-truth.schema.json",
+  "title": "LiveShield per-frame expected privacy outcome",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "fixtureId", "frameIndex", "sourceTimestampNs", "transform", "objects", "expectedState", "requiredAction"],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "fixtureId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "frameIndex": {"type": "integer", "minimum": 0},
+    "sourceTimestampNs": {"type": "integer", "minimum": 0},
+    "transform": {
+      "type": "object", "additionalProperties": false,
+      "required": ["rotationDegrees", "mirrored", "crop", "sensorToBuffer"],
+      "properties": {
+        "rotationDegrees": {"enum": [0, 90, 180, 270]},
+        "mirrored": {"type": "boolean"},
+        "crop": {"$ref": "#/$defs/rect"},
+        "sensorToBuffer": {
+          "type": "array", "minItems": 9, "maxItems": 9,
+          "items": {"type": "number"}
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["objectId", "category", "role", "polygon", "visibility", "protectable", "legible"],
+        "properties": {
+          "objectId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+          "category": {"enum": ["FACE", "MACHINE_READABLE_CODE", "EMAIL", "PHONE", "PAYMENT_CARD", "VERIFICATION_CODE", "PERSON_NAME", "ADDRESS", "EMPLOYER", "SCHOOL", "DOCUMENT", "BADGE", "PARCEL_LABEL", "DEVICE_SCREEN", "BIV_PRIVATE_OBJECT"]},
+          "role": {"enum": ["HOST", "UNKNOWN", "SENSITIVE", "DECOY", "NOT_APPLICABLE"]},
+          "polygon": {
+            "type": "array", "minItems": 3,
+            "items": {"$ref": "#/$defs/point"}
+          },
+          "visibility": {"type": "number", "minimum": 0, "maximum": 1},
+          "protectable": {"type": "boolean"},
+          "legible": {"type": "boolean"}
+        }
+      }
+    },
+    "expectedState": {"enum": ["REGIONAL_PROTECTION", "FULL_SHIELD", "STOPPED"]},
+    "requiredAction": {"enum": ["PROTECT_REGIONS", "FULL_SHIELD", "DROP_FRAME", "STOP_OUTPUT"]},
+    "generatorSeedOrPayloadId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"}
+  },
+  "$defs": {
+    "point": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {"type": "number", "minimum": 0, "maximum": 1}
+    },
+    "rect": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"type": "number", "minimum": 0, "maximum": 1}
+    }
+  }
+}

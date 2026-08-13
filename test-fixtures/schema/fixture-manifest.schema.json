@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://liveshield.local/schema/fixture-manifest.schema.json",
+  "title": "LiveShield evaluation fixture manifest record",
+  "description": "Schema for one JSONL fixture record. Sensitive participant data and credentials are forbidden by the validator.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion", "corpusVersion", "fixtureId", "group", "sourceKind", "split",
+    "scenarioIds", "sourcePath", "sourceDigest", "provenanceRef", "truthPath",
+    "mediaStreams", "leakageKeys"
+  ],
+  "properties": {
+    "schemaVersion": {"const": "1.0.0"},
+    "corpusVersion": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "fixtureId": {"$ref": "#/$defs/stableId"},
+    "group": {
+      "enum": ["WIDER_FACE", "BIV_PRIV_SEG", "RENDERER", "CONSENTED_FACE", "PRIORITY_2", "FAULT_INJECTION"]
+    },
+    "sourceKind": {"enum": ["SYNTHETIC", "CONSENTED_CAPTURE", "LICENSED_PUBLIC"]},
+    "split": {"enum": ["DEVELOPMENT", "HOLDOUT", "REGRESSION", "SMOKE"]},
+    "scenarioIds": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"$ref": "#/$defs/stableId"}
+    },
+    "sourcePath": {"$ref": "#/$defs/safeRelativePath"},
+    "sourceDigest": {"$ref": "#/$defs/sha256"},
+    "provenanceRef": {"type": "string", "minLength": 3, "maxLength": 256},
+    "truthPath": {"$ref": "#/$defs/safeRelativePath"},
+    "mediaStreams": {"type": "array", "const": ["VIDEO"]},
+    "leakageKeys": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceGroupId", "actorIds", "payloadIds", "generatorSeeds", "roomMotionIds"],
+      "properties": {
+        "sourceGroupId": {"$ref": "#/$defs/stableId"},
+        "actorIds": {"$ref": "#/$defs/idArray"},
+        "payloadIds": {"$ref": "#/$defs/idArray"},
+        "generatorSeeds": {"$ref": "#/$defs/idArray"},
+        "roomMotionIds": {"$ref": "#/$defs/idArray"}
+      }
+    },
+    "deviceContext": {
+      "type": "object", "additionalProperties": false,
+      "required": ["deviceClass", "lens", "width", "height", "frameRate"],
+      "properties": {
+        "deviceClass": {"$ref": "#/$defs/stableId"},
+        "lens": {"enum": ["FRONT", "REAR", "EXTERNAL"]},
+        "width": {"type": "integer", "minimum": 1},
+        "height": {"type": "integer", "minimum": 1},
+        "frameRate": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "publicDataset": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sourceUrl", "datasetVersion", "license", "allowedUsage", "attribution", "retrievedAt", "byteLength", "selectionSeed", "sourceItemId"],
+      "properties": {
+        "sourceUrl": {"type": "string", "pattern": "^https?://"},
+        "datasetVersion": {"type": "string", "minLength": 1},
+        "license": {"type": "string", "minLength": 1},
+        "allowedUsage": {"type": "string", "minLength": 1},
+        "attribution": {"type": "string", "minLength": 1},
+        "retrievedAt": {"$ref": "#/$defs/date"},
+        "byteLength": {"type": "integer", "minimum": 1},
+        "selectionSeed": {"$ref": "#/$defs/stableId"},
+        "sourceItemId": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    },
+    "syntheticSource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["generatorId", "generatorVersion", "fictionalPayloadVerified"],
+      "properties": {
+        "generatorId": {"$ref": "#/$defs/stableId"},
+        "generatorVersion": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "symbolGenerator": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$"},
+        "font": {
+          "type": "object", "additionalProperties": false,
+          "required": ["artifact", "sha256", "license", "upstreamCommit", "rasterizer"],
+          "properties": {
+            "artifact": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "license": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,63}$"},
+            "upstreamCommit": {"type": "string", "pattern": "^[a-f0-9]{40}$"},
+            "rasterizer": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{2,127}$"}
+          }
+        },
+        "fictionalPayloadVerified": {"const": true}
+      }
+    },
+    "captureAuthorization": {
+      "type": "object", "additionalProperties": false,
+      "required": ["authorizationRef", "consentRecorded", "fictionalPayloadVerified", "encryptedStorageRef", "authorizedAccessRef", "deletionDeadline", "deletionAuditStatus", "capturePhase"],
+      "properties": {
+        "authorizationRef": {"$ref": "#/$defs/opaqueRef"},
+        "consentRecorded": {"const": true},
+        "fictionalPayloadVerified": {"const": true},
+        "encryptedStorageRef": {"$ref": "#/$defs/opaqueRef"},
+        "authorizedAccessRef": {"$ref": "#/$defs/opaqueRef"},
+        "deletionDeadline": {"$ref": "#/$defs/date"},
+        "deletionAuditStatus": {"enum": ["PENDING", "DELETED", "WITHDRAWN"]},
+        "capturePhase": {"const": "DEVICE_VALIDATION"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"sourceKind": {"const": "LICENSED_PUBLIC"}}, "required": ["sourceKind"]},
+      "then": {"required": ["publicDataset"], "not": {"anyOf": [{"required": ["captureAuthorization"]}, {"required": ["syntheticSource"]}]}}
+    },
+    {
+      "if": {"properties": {"sourceKind": {"const": "SYNTHETIC"}}, "required": ["sourceKind"]},
+      "then": {"required": ["syntheticSource"], "not": {"anyOf": [{"required": ["captureAuthorization"]}, {"required": ["publicDataset"]}]}}
+    },
+    {
+      "if": {"properties": {"sourceKind": {"const": "CONSENTED_CAPTURE"}}, "required": ["sourceKind"]},
+      "then": {"required": ["captureAuthorization", "deviceContext"], "not": {"anyOf": [{"required": ["publicDataset"]}, {"required": ["syntheticSource"]}]}}
+    }
+  ],
+  "$defs": {
+    "stableId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,127}$"},
+    "opaqueRef": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$"},
+    "idArray": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/stableId"}},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "date": {"type": "string", "format": "date", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"},
+    "safeRelativePath": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000]+$"}
+  }
+}

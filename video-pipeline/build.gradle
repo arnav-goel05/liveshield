@@ -1,0 +1,78 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace = 'com.liveshield.video'
+    compileSdk = rootProject.ext.sdk.compile
+
+    defaultConfig {
+        minSdk = rootProject.ext.sdk.min
+        testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    sourceSets {
+        androidTest {
+            // Reuse the one debug-only, payload-free fault dispatcher in the decoded-output gate.
+            // No app production source or camera surface is added to this test APK.
+            java.srcDirs += ['../app/src/debug/java']
+            assets.srcDirs += [
+                '../test-fixtures/media',
+                '../test-fixtures/annotations',
+                '../test-fixtures/manifests'
+            ]
+        }
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+        targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:${rootProject.ext.versions.desugarJdkLibs}"
+    implementation project(':privacy-domain')
+    implementation project(':vision')
+    api "androidx.concurrent:concurrent-futures:${rootProject.ext.versions.concurrentFutures}"
+    implementation "androidx.camera:camera-core:${rootProject.ext.versions.cameraX}"
+    implementation "androidx.camera:camera-camera2:${rootProject.ext.versions.cameraX}"
+    implementation "androidx.camera:camera-lifecycle:${rootProject.ext.versions.cameraX}"
+    implementation "androidx.camera:camera-video:${rootProject.ext.versions.cameraX}"
+    implementation "androidx.camera:camera-view:${rootProject.ext.versions.cameraX}"
+
+    testImplementation "junit:junit:${rootProject.ext.versions.junit}"
+    androidTestImplementation "androidx.test:core:${rootProject.ext.versions.androidXTest}"
+    androidTestImplementation "androidx.test:runner:${rootProject.ext.versions.androidXTest}"
+    androidTestImplementation "androidx.test.ext:junit:${rootProject.ext.versions.androidXTestJunit}"
+    androidTestUtil "androidx.test:orchestrator:${rootProject.ext.versions.testOrchestrator}"
+}
+
+tasks.register('verifyApi23VideoAsyncContract') {
+    group = 'verification'
+    description = 'Rejects Android API 24 CompletableFuture/CompletionStage from production video code.'
+    inputs.files(fileTree('src/main/java') { include '**/*.java' })
+    doLast {
+        inputs.files.each { sourceFile ->
+            String source = sourceFile.getText('UTF-8')
+            List<String> forbiddenApi24Types = [
+                'CompletionStage',
+                'CompletableFuture',
+                'Float.BYTES',
+                'Double.BYTES',
+                'Integer.BYTES',
+                'Long.BYTES'
+            ]
+            String incompatible = forbiddenApi24Types.find { source.contains(it) }
+            if (incompatible != null) {
+                throw new GradleException(
+                    "API 23 incompatible type or constant ${incompatible} in ${sourceFile}")
+            }
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('verifyApi23VideoAsyncContract')
+}

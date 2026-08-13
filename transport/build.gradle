@@ -1,0 +1,98 @@
+plugins {
+    id 'com.android.library'
+}
+
+android {
+    namespace = 'com.liveshield.transport'
+    compileSdk = rootProject.ext.sdk.compile
+
+    defaultConfig {
+        minSdk = rootProject.ext.sdk.min
+        testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+        targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:${rootProject.ext.versions.desugarJdkLibs}"
+    implementation project(':privacy-domain')
+    api project(':video-pipeline')
+    // Compile-only: PrivacySurfaceProcessor's public ABI extends CameraX SurfaceProcessor.
+    // Transport neither packages CameraX nor invokes camera/capture APIs at runtime.
+    compileOnly "androidx.camera:camera-core:${rootProject.ext.versions.cameraX}"
+    // Low-level RTMP packetization only; do not pull in RootEncoder capture/audio APIs.
+    implementation "com.github.pedroSG94.RootEncoder:rtmp:${rootProject.ext.versions.rootEncoder}"
+
+    testImplementation "junit:junit:${rootProject.ext.versions.junit}"
+    // Test-only ABI visibility for constructing the renderer owner in boundary JVM tests.
+    testImplementation "androidx.camera:camera-core:${rootProject.ext.versions.cameraX}"
+    testImplementation "androidx.core:core:1.18.0"
+    androidTestImplementation "androidx.test:core:${rootProject.ext.versions.androidXTest}"
+    androidTestImplementation "androidx.test:runner:${rootProject.ext.versions.androidXTest}"
+    androidTestImplementation "androidx.test.ext:junit:${rootProject.ext.versions.androidXTestJunit}"
+    androidTestUtil "androidx.test:orchestrator:${rootProject.ext.versions.testOrchestrator}"
+}
+
+def rtmpIntegrationPropertyName = 'liveshield.rtmp.integration'
+def mediaMtxBinaryPropertyName = 'liveshield.mediamtx.binary'
+def forwardedRtmpProperties = [rtmpIntegrationPropertyName, mediaMtxBinaryPropertyName]
+
+tasks.withType(Test).configureEach {
+    // These opt-ins are local test controls; no other Gradle JVM properties cross the boundary.
+    forwardedRtmpProperties.each { propertyName ->
+        def requestedValue = System.getProperty(propertyName)
+        if (requestedValue != null) {
+            systemProperty propertyName, requestedValue
+        }
+    }
+}
+
+tasks.register('verifyRtmpIntegrationPropertyForwarding') {
+    group = 'verification'
+    description = 'Verifies allowlisted RTMP test properties are absent or forwarded exactly.'
+    doLast {
+        forwardedRtmpProperties.each { propertyName ->
+            def requestedValue = System.getProperty(propertyName)
+            tasks.withType(Test).each { testTask ->
+                def forwarded = testTask.systemProperties.get(propertyName)
+                if (requestedValue == null && forwarded != null) {
+                    throw new GradleException("${propertyName} must be absent by default")
+                }
+                if (requestedValue != null && requestedValue != forwarded?.toString()) {
+                    throw new GradleException(
+                            "${propertyName} was not forwarded to ${testTask.path}")
+                }
+            }
+            logger.lifecycle('{} property forwarding: {}', propertyName,
+                    requestedValue == null ? 'ABSENT' : 'PRESENT')
+        }
+    }
+}
+
+tasks.register('verifyNoRuntimeCameraXDependency') {
+    group = 'verification'
+    description = 'Proves transport compile classpath has no direct CameraX dependency.'
+    doLast {
+        def directCameraX = ['debugRuntimeClasspath', 'releaseRuntimeClasspath'].collectMany {
+            configurationName ->
+            configurations.getByName(configurationName).incoming.resolutionResult.root
+                    .dependencies.findAll { dependency ->
+                        def requested = dependency.requested
+                        requested.hasProperty('group') && requested.group == 'androidx.camera'
+                    }
+        }
+        if (!directCameraX.isEmpty()) {
+            throw new GradleException(
+                    "Transport must not contribute CameraX at runtime: ${directCameraX*.requested}")
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('verifyNoRuntimeCameraXDependency')
+}

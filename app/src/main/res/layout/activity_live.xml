@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/live_private_controls_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/live_screen_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/live_title"
+            android:textColor="#FFFFFFFF"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/live_private_controls_notice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:accessibilityTraversalAfter="@id/live_screen_title"
+            android:text="@string/live_private_controls_notice"
+            android:textColor="#FFCFD8DC"
+            android:textSize="15sp" />
+
+        <LinearLayout
+            android:id="@+id/live_status_card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:accessibilityLiveRegion="assertive"
+            android:accessibilityTraversalAfter="@id/live_private_controls_notice"
+            android:background="@drawable/privacy_placeholder"
+            android:descendantFocusability="blocksDescendants"
+            android:focusable="true"
+            android:importantForAccessibility="yes"
+            android:orientation="vertical"
+            android:padding="20dp">
+
+            <TextView
+                android:id="@+id/live_status_indicator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:importantForAccessibility="no"
+                android:text="@string/live_status_indicator_inactive"
+                android:textColor="#FFFFD180"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/live_status_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:importantForAccessibility="no"
+                android:text="@string/live_status_not_live_label"
+                android:textColor="#FFFFFFFF"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/live_status_detail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:importantForAccessibility="no"
+                android:text="@string/live_status_not_live_detail"
+                android:textColor="#FFE8EEF2"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/live_publisher_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:accessibilityTraversalAfter="@id/live_status_card"
+            android:text="@string/live_publisher_not_active"
+            android:textColor="#FFE8EEF2"
+            android:textSize="15sp" />
+
+        <TextView
+            android:id="@+id/live_privacy_limit_notice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:accessibilityTraversalAfter="@id/live_publisher_status"
+            android:text="@string/privacy_limit_notice"
+            android:textColor="#FFCFD8DC"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/live_video_only_notice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:accessibilityTraversalAfter="@id/live_privacy_limit_notice"
+            android:text="@string/video_only_notice"
+            android:textColor="#FFCFD8DC"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/stop_live_session"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:accessibilityTraversalAfter="@id/live_video_only_notice"
+            android:enabled="false"
+            android:text="@string/stop_live_session" />
+    </LinearLayout>
+</ScrollView>

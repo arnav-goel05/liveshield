@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LiveShield</string>
+
+    <string name="camera_permission_title">Camera access needed</string>
+    <string name="camera_permission_explanation">LiveShield needs the camera to create a visually protected video output. Microphone audio is not captured in this version.</string>
+    <string name="camera_permission_denied">Camera access is off. No video session can start.</string>
+    <string name="camera_permission_granted">Camera access is on. LiveShield still waits for a sanitized preview and host selection.</string>
+    <string name="allow_camera">Allow camera</string>
+
+    <string name="setup_title">Set up protected LIVE</string>
+    <string name="scope_disclosure_title">Before you set up LIVE</string>
+    <string name="scope_disclosure_supported">Designed for one creator in a controlled indoor space.</string>
+    <string name="scope_disclosure_visual_only">LiveShield protects visible video only. This version captures no microphone audio, so it cannot protect spoken information or background sound.</string>
+    <string name="scope_disclosure_no_anonymity">Visual protection reduces exposure but does not guarantee anonymity.</string>
+    <string name="scope_disclosure_unsupported">Do not rely on this version in public venues, moving outdoor scenes, or dense crowds. Those settings have not been validated.</string>
+    <string name="acknowledge_scope_disclosure">I understand — continue to setup</string>
+    <string name="setup_scope_notice">For a controlled indoor space. Review the protected preview before starting.</string>
+    <string name="sanitized_preview_description">Sanitized camera preview area</string>
+    <string name="sanitized_preview_waiting">Sanitized preview is not connected yet. Camera imagery stays hidden.</string>
+    <string name="face_selection_overlay_description">Fresh detected faces available for explicit host selection</string>
+    <string name="host_selection_instruction">Tap your fresh face outline to select the session host. LiveShield does not identify people or transfer permission automatically.</string>
+    <string name="start_protected_live">Start protected LIVE</string>
+
+    <string name="privacy_status_label">Private protection status</string>
+    <string name="privacy_status_not_ready">Not ready — select the host and review protection before starting.</string>
+    <string name="privacy_status_active">Protection active — continue to review the private preview.</string>
+    <string name="privacy_status_degraded">Protection degraded — output may switch to a full privacy shield.</string>
+    <string name="privacy_status_shielding">Privacy shield active — camera imagery is not being shown.</string>
+    <string name="privacy_status_stopped">Session stopped — no video is being published.</string>
+    <string name="privacy_status_permission_required">Not ready — camera permission is required. No video is being published.</string>
+    <string name="privacy_status_select_host">Not ready — select one fresh host face. No video is being published.</string>
+    <string name="privacy_status_reselect_host">Host tracking became uncertain — tap one fresh face to select the host again. Permission is never transferred automatically.</string>
+    <string name="privacy_status_checking">Not ready — checking the sanitized protection path. No video is being published.</string>
+    <string name="privacy_status_ready">Ready to start — host selected and the sanitized protection path reports ready.</string>
+
+    <string name="privacy_placeholder_description">Privacy shield placeholder</string>
+    <string name="privacy_placeholder_message">Camera hidden for privacy</string>
+    <string name="privacy_limit_notice">Visual protection reduces exposure but does not guarantee anonymity.</string>
+    <string name="video_only_notice">Video only — LiveShield does not capture microphone audio.</string>
+    <string name="indoor_privacy_setup_title">Session privacy areas and words</string>
+    <string name="watchlist_explanation">Add private words that visible text should protect in this session. Entries stay on this device, are not saved, and are cleared when setup closes.</string>
+    <string name="watchlist_term_hint">Name, address, employer, or school</string>
+    <string name="add_watchlist_term">Add private word or phrase</string>
+    <string name="watchlist_status_empty">No session watchlist entries.</string>
+    <plurals name="watchlist_status_count">
+        <item quantity="one">%1$d of %2$d session watchlist entry configured.</item>
+        <item quantity="other">%1$d of %2$d session watchlist entries configured.</item>
+    </plurals>
+    <string name="watchlist_status_duplicate">That normalized entry is already configured.</string>
+    <string name="watchlist_status_invalid">Entry must contain 1 to 64 visible characters.</string>
+    <string name="watchlist_status_limit">The session watchlist limit is 32 entries.</string>
+    <string name="remove_watchlist_term">Remove session watchlist entry %1$d</string>
+    <string name="privacy_zone_explanation">Draw on the sanitized preview or enter output percentages from 0 to 100. Fixed zones protect the full selected area. Reconfirm after every edit before starting.</string>
+    <string name="privacy_zone_canvas_description">Private fixed-zone drawing layer over the sanitized preview</string>
+    <string name="draw_privacy_zone">Draw a fixed privacy zone on preview</string>
+    <string name="finish_drawing_privacy_zone">Finish drawing zones</string>
+    <string name="privacy_zone_coordinates_label">Accessible zone coordinates, percentages of output:</string>
+    <string name="privacy_zone_left_hint">Left %</string>
+    <string name="privacy_zone_top_hint">Top %</string>
+    <string name="privacy_zone_right_hint">Right %</string>
+    <string name="privacy_zone_bottom_hint">Bottom %</string>
+    <string name="add_privacy_zone">Add fixed zone</string>
+    <string name="update_privacy_zone">Update selected zone</string>
+    <string name="previous_privacy_zone">Previous zone</string>
+    <string name="next_privacy_zone">Next zone</string>
+    <string name="remove_privacy_zone">Remove zone</string>
+    <string name="privacy_zone_status_empty">No fixed privacy zones.</string>
+    <plurals name="privacy_zone_status_selected">
+        <item quantity="one">Zone %1$d of %2$d selected. Alignment must be confirmed.</item>
+        <item quantity="other">Zone %1$d of %2$d selected. Alignment must be confirmed.</item>
+    </plurals>
+    <plurals name="privacy_zone_status_safe">
+        <item quantity="one">%1$d fixed zone confirmed against the current sanitized preview.</item>
+        <item quantity="other">%1$d fixed zones confirmed against the current sanitized preview.</item>
+    </plurals>
+    <string name="privacy_zone_status_invalid">Use four percentages from 0 to 100 with left below right and top below bottom.</string>
+    <string name="privacy_zone_status_limit">The session limit is 8 non-overlapping fixed zones.</string>
+    <string name="confirm_privacy_zones">Confirm zones against current sanitized preview</string>
+    <string name="destination_title">Choose where protected video will go</string>
+    <string name="destination_video_only_explanation">LiveShield publishes sanitized video only and never microphone audio. It cannot intercept or replace the camera inside the normal TikTok app.</string>
+    <string name="destination_local_demo">Controlled MediaMTX demonstration (not TikTok LIVE)</string>
+    <string name="destination_tiktok_external">TikTok external broadcast</string>
+    <string name="destination_tiktok_eligibility">Use this only if TikTok has explicitly issued an RTMP server and stream key for this account. Not every account is eligible. LiveShield cannot obtain or bypass access.</string>
+    <string name="destination_endpoint_hint">Account-issued RTMP server</string>
+    <string name="destination_secret_hint">Account-issued stream key (session only)</string>
+    <string name="destination_configure">Use this destination for this session</string>
+    <string name="destination_status_demo_not_configured">Controlled demonstration is selected but not configured.</string>
+    <string name="destination_status_external_not_configured">External broadcast is selected but not configured.</string>
+    <string name="destination_status_configured_session_only">Destination configured for this session only. The stream key is hidden and will be cleared when the session ends.</string>
+    <string name="destination_status_invalid">Destination could not be configured. Check the RTMP server and stream key; no video is being published.</string>
+    <string name="destination_status_endpoint_invalid">The RTMP server address is invalid. No video is being published.</string>
+    <string name="destination_status_secret_required">A session-only stream key is required for external broadcast. No video is being published.</string>
+
+    <string name="live_title">Protected LIVE status</string>
+    <string name="live_private_controls_notice">Private creator controls. These labels are not part of the video sent to viewers.</string>
+    <string name="live_status_indicator_inactive">● Inactive</string>
+    <string name="live_status_indicator_healthy">● Healthy</string>
+    <string name="live_status_indicator_degraded">▲ Degraded</string>
+    <string name="live_status_indicator_shielding">■ Shielding</string>
+    <string name="live_status_indicator_failed">■ Stopped after failure</string>
+    <string name="live_status_not_live_label">Not live</string>
+    <string name="live_status_not_live_detail">No video is being published.</string>
+    <string name="live_status_healthy_label">Protection healthy</string>
+    <string name="live_status_healthy_detail">The protected video path is operating normally. Keep monitoring; visual protection does not guarantee anonymity.</string>
+    <string name="live_status_degraded_label">Protection degraded</string>
+    <string name="live_status_degraded_detail">Regional protection may be unavailable. LiveShield will strengthen protection or switch to the full privacy shield.</string>
+    <string name="live_status_shielding_label">Full privacy shield active</string>
+    <string name="live_status_shielding_detail">Camera imagery is not being shown to viewers while LiveShield waits for safe recovery.</string>
+    <string name="live_status_stopped_label">Session stopped</string>
+    <string name="live_status_stopped_detail">No video is being published.</string>
+    <string name="live_status_failed_label">Stopped after protection failure</string>
+    <string name="live_status_failed_detail">The protected path could not continue safely, so output stopped. No video is being published.</string>
+    <string name="live_publisher_not_active">Destination: not publishing.</string>
+    <string name="live_publisher_connecting">Destination: connecting. Publication is not yet confirmed.</string>
+    <string name="live_publisher_confirmed">Destination: publishing sanitized video.</string>
+    <string name="live_publisher_waiting_fresh_media">Destination: connected, waiting for fresh configuration and a fresh keyframe.</string>
+    <string name="live_publisher_reconnecting">Destination: reconnecting. Stale queued video was discarded; waiting for fresh configuration and a fresh keyframe.</string>
+    <string name="live_publisher_congestion">Destination: congested. Stale queued video was discarded and reconnect safety is active.</string>
+    <string name="live_publisher_auth_failed">Destination authentication failed. Publication stopped; check eligibility and enter fresh session credentials.</string>
+    <string name="live_publisher_queue_failed">Destination queue failed safely. Publication stopped and queued video was discarded.</string>
+    <string name="live_publisher_failed">Destination connection or publication failed. Publication stopped safely.</string>
+    <string name="live_publisher_stopped">Destination: publication stopped.</string>
+    <string name="stop_live_session">Stop protected LIVE</string>
+</resources>

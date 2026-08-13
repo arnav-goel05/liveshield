@@ -1,0 +1,127 @@
+plugins {
+    id 'com.android.test'
+}
+
+android {
+    namespace = 'com.liveshield.benchmark'
+    compileSdk = rootProject.ext.sdk.compile
+    targetProjectPath = ':app'
+    experimentalProperties['android.experimental.self-instrumenting'] = true
+
+    defaultConfig {
+        minSdk = rootProject.ext.sdk.min
+        testInstrumentationRunner = 'androidx.test.runner.AndroidJUnitRunner'
+    }
+
+    compileOptions {
+        coreLibraryDesugaringEnabled = true
+        sourceCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+        targetCompatibility = JavaVersion.toVersion(rootProject.ext.javaLanguageVersion)
+    }
+
+    buildTypes {
+        benchmark {
+            signingConfig = signingConfigs.debug
+            matchingFallbacks = ['release']
+        }
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().all()) { variantBuilder ->
+        variantBuilder.enable = variantBuilder.buildType == 'benchmark'
+    }
+}
+
+dependencies {
+    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:${rootProject.ext.versions.desugarJdkLibs}"
+    implementation "androidx.test:core:${rootProject.ext.versions.androidXTest}"
+    implementation "androidx.test:runner:${rootProject.ext.versions.androidXTest}"
+    implementation "androidx.test.ext:junit:${rootProject.ext.versions.androidXTestJunit}"
+    implementation "androidx.benchmark:benchmark-macro-junit4:${rootProject.ext.versions.benchmark}"
+    androidTestUtil "androidx.test:orchestrator:${rootProject.ext.versions.testOrchestrator}"
+}
+
+tasks.register('verifyMacrobenchmarkConfiguration') {
+    group = 'verification'
+    description = 'Verifies the benchmark targets a non-debuggable app and self-instruments.'
+    dependsOn 'packageBenchmark', ':app:packageBenchmark'
+    doLast {
+        def targetBuildType = project(':app').android.buildTypes.getByName('benchmark')
+        if (targetBuildType.debuggable) {
+            throw new GradleException('Macrobenchmark target variant must not be debuggable')
+        }
+        if (android.experimentalProperties['android.experimental.self-instrumenting'] != true) {
+            throw new GradleException('Macrobenchmark module must be self-instrumenting')
+        }
+        List<File> benchmarkApks = fileTree(layout.buildDirectory.dir('outputs/apk/benchmark')) {
+            include '**/*.apk'
+        }.files.toList()
+        List<File> targetApks = project(':app').fileTree(
+                project(':app').layout.buildDirectory.dir('outputs/apk/benchmark')) {
+            include '**/*.apk'
+        }.files.toList()
+        if (benchmarkApks.size() != 1 || targetApks.size() != 1) {
+            throw new GradleException(
+                    "Expected one benchmark APK and one target APK, found "
+                            + "${benchmarkApks.size()} and ${targetApks.size()}")
+        }
+        File sdkDirectory = androidComponents.sdkComponents.sdkDirectory.get().asFile
+        List<File> apkSigners = fileTree(new File(sdkDirectory, 'build-tools')) {
+            include '*/apksigner'
+        }.files.sort { first, second -> first.absolutePath <=> second.absolutePath }
+        if (apkSigners.isEmpty()) {
+            throw new GradleException('Android SDK apksigner is unavailable')
+        }
+        File apkSigner = apkSigners.last()
+        (benchmarkApks + targetApks).each { apk ->
+            Process verification = new ProcessBuilder(
+                    apkSigner.absolutePath,
+                    'verify',
+                    '--print-certs',
+                    apk.absolutePath)
+                    .redirectErrorStream(true)
+                    .start()
+            String verificationOutput = verification.inputStream.getText('UTF-8')
+            if (verification.waitFor() != 0
+                    || !verificationOutput.contains(
+                            'Signer #1 certificate SHA-256 digest:')) {
+                throw new GradleException(
+                        "APK is not cryptographically signed: ${apk.name}")
+            }
+        }
+        List<File> targetManifests = project(':app').fileTree(
+                project(':app').layout.buildDirectory.dir(
+                        'intermediates/packaged_manifests/benchmark')) {
+            include '**/AndroidManifest.xml'
+        }.files.toList()
+        File benchmarkManifest = file(
+                'build/intermediates/packaged_manifests/benchmark/'
+                        + 'processBenchmarkManifest/AndroidManifest.xml')
+        if (targetManifests.size() != 1
+                || targetManifests.get(0).getText('UTF-8').contains(
+                        'android:debuggable="true"')) {
+            throw new GradleException(
+                    'Packaged macrobenchmark target must exist and be non-debuggable')
+        }
+        String instrumentationManifest = benchmarkManifest.getText('UTF-8')
+        if (!instrumentationManifest.contains('package="com.liveshield.benchmark"')
+                || !instrumentationManifest.contains(
+                        'android:targetPackage="com.liveshield.benchmark"')) {
+            throw new GradleException(
+                    'Packaged macrobenchmark APK is not self-instrumenting')
+        }
+        fileTree(projectDir) {
+            include 'build.gradle', 'src/**/*.java', 'src/**/*.xml'
+        }.each { source ->
+            if (source.getText('UTF-8').contains('suppress' + 'Errors')) {
+                throw new GradleException(
+                        "Macrobenchmark error suppression is forbidden: ${source}")
+            }
+        }
+    }
+}
+
+tasks.named('check').configure {
+    dependsOn tasks.named('verifyMacrobenchmarkConfiguration')
+}
