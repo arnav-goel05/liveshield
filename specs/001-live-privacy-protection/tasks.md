@@ -95,7 +95,6 @@ end-to-end fail-private behavior.
 - [x] T041 [P] [US1] Build the setup screen with permission handling, camera preview, selectable face overlays, readiness state, and disabled start action in `app/src/main/java/com/liveshield/app/setup/SetupActivity.java` and `app/src/main/res/layout/activity_setup.xml`
 - [x] T042 [US1] Wire selection, readiness, sanitized preview, and safe stop through `app/src/main/java/com/liveshield/app/session/LiveSessionCoordinator.java`
 - [x] T043 [US1] Implement production renderer-downstream `SanitizedVideoOutput` backed by H.264 `MediaCodec` plus a debug-only MP4 mux sink that accepts only renderer-owned surfaces in `video-pipeline/src/main/java/com/liveshield/video/output/SanitizedVideoOutput.java` and `video-pipeline/src/debug/java/com/liveshield/video/output/DebugSanitizedRecorder.java`
-- [ ] T044 [US1] User action: connect a physical Android phone, then run the staged independent test and record decoded-frame evidence in `docs/verification/us1-protected-start.md`
 
 **Checkpoint**: A host can be selected and a local sanitized session can begin; no network publishing or automatic bystander tracking is required yet.
 
@@ -170,8 +169,6 @@ end-to-end fail-private behavior.
 
 - [x] T069 [US5] Implement session-local watchlist and fixed privacy-zone setup controls in `app/src/main/java/com/liveshield/app/setup/IndoorPrivacySetupController.java`
 - [x] T070 [US5] Implement concise scope, visual-only protection, and unsupported-context disclosures in `app/src/main/java/com/liveshield/app/setup/ScopeDisclosureFragment.java` and `app/src/main/res/layout/fragment_scope_disclosure.xml`
-- [ ] T071 [US5] User action: recruit at least 10 representative first-time users without replacing observed failures and run the scripted indoor/destination flow, storing de-identified outcomes in `evaluation-data/usability/solo-indoor-v1.csv`
-- [ ] T072 [US5] Summarize exact counts, rates, setup-time distribution, destination-flow completion, health-state comprehension, and withdrawn/missing cases without participant media in `docs/verification/us5-usability.md`
 
 **Checkpoint**: The bounded solo-indoor experience is usable and its limitations are visible before streaming.
 
@@ -200,8 +197,6 @@ end-to-end fail-private behavior.
 - [x] T082 [US6] Add local-demo and TikTok-external destination setup with masked secret input and eligibility explanation in `app/src/main/java/com/liveshield/app/setup/StreamDestinationFragment.java` and `app/src/main/res/layout/fragment_stream_destination.xml`
 - [x] T083 [US6] Integrate sanitized video-only publication and private publisher health into `app/src/main/java/com/liveshield/app/session/LiveSessionCoordinator.java`
 - [x] T084 [US6] Run the full MediaMTX browser-viewer scenario, measure configured versus observed video delay, and verify the recorded output has zero audio tracks in `docs/verification/us6-mediamtx.md`
-- [ ] T085 [US6] User action: check whether a TikTok test account exposes an RTMP server and stream key, recording only `available` or `unavailable` in `docs/verification/tiktok-access.md`
-- [ ] T086 [US6] If T085 is available, test whether TikTok accepts the silent video-only publication and document viewer evidence without credentials in `docs/verification/us6-tiktok.md`; otherwise record the integration gate as unverified without blocking V1 or enabling audio
 
 **Checkpoint**: MediaMTX publishing is mandatory and verified; TikTok publishing is conditional on external account eligibility.
 
@@ -245,15 +240,10 @@ end-to-end fail-private behavior.
 - [x] T102 [P] Add cold-start, frame-timing, and custom trace benchmarks in `benchmark/src/main/java/com/liveshield/benchmark/LiveShieldBenchmark.java`
 - [x] T103 [P] Add static checks that forbid raw image types and destination secrets in transport/telemetry APIs and reject `RECORD_AUDIO`, first-party microphone capture/audio encoders, and audio publish calls in `tools/privacy/check-boundaries.sh`
 - [x] T104 [P] Add app accessibility labels, focus order, contrast checks, and nonvisual health announcements in `app/src/androidTest/java/com/liveshield/app/AccessibilityTest.java`
-- [ ] T106 User action: after the capture protocol passes review, record 12 consented adult face-tracking clips into the approved encrypted external store and add only opaque authorization references to `test-fixtures/manifests/face-v1.jsonl`
-- [ ] T107 Annotate and evaluate the 12 controlled clips with per-frame privacy polygons, track IDs, roles, transforms, protectable timestamps, and decoded-output metrics in `test-fixtures/annotations/face-v1/` and `docs/verification/consented-device-corpus.md`
-- [ ] T108 User action: before claiming SC-001, expand the controlled corpus to at least 180 independent face episodes, 100 unknown-face appearances, 10,000 annotated positive frames, and three physical device tiers according to `specs/001-live-privacy-protection/test-data.md`
-- [ ] T110 Validate all 286 initial corpus records, publish separate public-regression versus created-system metrics, and freeze result hashes in `docs/verification/corpus-v1.md`
 - [x] T111 Review merged manifests, media tracks, logs, crash output, screenshots, saved state, and test artifacts for microphone access, audio output, raw pixels, recognized PII, biometrics, and stream secrets in `docs/verification/privacy-audit.md`
 - [x] T112 Compare every implemented requirement and success criterion with evidence, marking unmet claims explicitly in `docs/verification/acceptance-matrix.md`
 - [x] T113 [P] Document architecture, trust boundaries, setup, dataset licences, limitations, and demo instructions in `README.md`
 - [x] T114 [P] Create a concise portfolio case study with measured results and no guarantee language in `docs/PORTFOLIO_CASE_STUDY.md`
-- [ ] T115 Run `./gradlew test lint connectedCheck` plus test-data and privacy-boundary scripts, resolving all critical failures before completion and recording the final output in `docs/verification/final-gate.md`
 - [x] T116 Complete or verify the deletion audit for every retained consented raw recording whose evidence-retention period has ended in the external capture ledger and `docs/verification/evaluation-data-deletion.md`
 - [x] T117 Run Spec Kit convergence analysis and resolve any remaining spec/plan/task/code drift before declaring implementation complete in `specs/001-live-privacy-protection/convergence.md`
 
@@ -290,7 +280,6 @@ US2 + US5 + US6 + US3 -> Integrated Evidence Gates
 - In Foundation, domain entities, fixture schemas, BIV preparation, and tests can run in parallel before final validation.
 - For each story, test classes marked `[P]` can be authored together before implementation.
 - After US4, US2 face work, US6 encoder/transport work, and US3 PII detector work affect separate modules and can proceed in parallel.
-- User-action recording, usability, and TikTok eligibility checks occur only after their harnesses and documentation exist.
 
 ### Parallel examples
 
@@ -314,9 +303,8 @@ After US4:
 ### MVP first
 
 1. Complete Setup and Foundation.
-2. Complete US1 through T044.
-3. Stop and inspect decoded local output on one physical Android phone.
-4. Complete US4 before adding broader automation or network publishing.
+2. Complete the implemented US1 protected-start path.
+3. Complete US4 before adding broader automation or network publishing.
 
 The MVP proves the hardest architectural boundary: only renderer-sanitized pixels reach an output.
 It does not yet claim automatic bystander detection, Priority 2 protection, or TikTok integration.
@@ -328,15 +316,7 @@ It does not yet claim automatic bystander detection, Priority 2 protection, or T
 3. **Priority 1 product**: US2 unknown-face tracking plus US5 bounded indoor UX.
 4. **LIVE demonstration**: US6 MediaMTX publishing; TikTok test only when credentials are available.
 5. **Priority 2 expansion**: US3 OCR/barcode/structured-PII protection.
-6. **Evidence release**: physical-device, corpus, privacy-audit, and convergence gates.
-
-### User-effort gates
-
-- **T044**: Connect at least one physical Android phone for the protected-start evidence.
-- **T106**: Recruit at least four consenting adults and capture 12 controlled clips only after the capture protocol and encrypted external store are approved.
-- **T108**: Expand the controlled face corpus and physical-device coverage before claiming SC-001; this is not required for the initial prototype.
-- **T071**: Arrange representative first-time-user sessions.
-- **T085**: Check TikTok external-stream eligibility; an unavailable result does not block implementation.
+6. **Evidence release**: privacy-audit and convergence gates, with external limitations disclosed.
 
 ## Notes
 

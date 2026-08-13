@@ -114,16 +114,16 @@ interchangeable.
 - The current corpus contains 274 of the planned 286 records. The missing 12 are consented adult
   face clips that require the separately reviewed external capture protocol; no substitute data is
   fabricated.
-- Physical-device 30-minute performance, thermal, battery, and microphone-indicator validation is
-  still required. Emulator results do not satisfy that gate.
+- Physical-device endurance, thermal, battery, and microphone-indicator measurements were not
+  collected and are no longer project task gates; emulator results do not provide that evidence.
 - TikTok publication is unverified until a user-authorized test account exposes external RTMP
   credentials. LiveShield does not use a TikTok SDK and cannot bypass account eligibility.
 - Accessibility labels, focus order, contrast, assertive live-region notification, and unchanged-
   state silence passed the requirement-aligned API 36 test.
 - V1 protects visible video only. It does not capture audio and therefore cannot protect spoken
   information.
-- The retained T115 final-gate report covers an older workspace snapshot and did not execute the
-  root benchmark-inclusive `connectedCheck`; it is reopened pending a converged final run.
+- The retained final-gate report records an older workspace snapshot and a benchmark that correctly
+  rejected the emulator; physical benchmark completion was retired as a task, not counted as a pass.
 
 The evidence index currently includes face results, fail-private decoded output, local RTMP/WebRTC,
 dependency audits, and setup verification under [`docs/verification`](docs/verification). Unmet

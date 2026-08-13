@@ -1,7 +1,7 @@
 # LiveShield convergence record
 
 **Assessment date:** 2026-08-13  
-**Status:** local convergence complete; project completion is blocked by the open items below  
+**Status:** local convergence complete; T119 is the sole remaining implementation task
 **Intent sources:** [specification](spec.md), [plan](plan.md), [tasks](tasks.md), and
 [constitution](../../.specify/memory/constitution.md)
 
@@ -9,8 +9,9 @@
 
 The fresh code/evidence comparison found and resolved the local production-composition drift that
 was absent from the original implementation phases. No constitutional requirement was weakened.
-The repository is not complete: T119 reached a formally stopped unsupported boundary, T115
-requires a physical benchmark run, and the user/external actions listed below remain open.
+The repository is not complete because T119 reached a formally stopped unsupported OCR boundary.
+Physical-device, human-participant, consented-corpus, TikTok, and final benchmark activities were
+retired from the project task ledger by user decision; their absence remains an evidence limitation.
 
 Evidence boundaries remain distinct. Source/JVM, emulator, synthetic decoded output, public still
 regression, physical-device, human usability, consented-corpus, MediaMTX, and optional TikTok
@@ -25,7 +26,7 @@ anonymity or universal-detection guarantee.
 | T120 | Production live-session state and Stop were not bound to the private live UI | `ProductionLiveSessionUi`, `LiveSessionUiRegistry`, and `LiveActivity` now carry payload-free state and an idempotent safe-stop request without media ownership | Resolved locally and API 36 verified |
 | T121 | Production health used incomplete/hardcoded safety inputs | `ProductionSafetyHealth` composes renderer raw-queue/recovery, real thermal, and scene state into `VisionScheduler`, `LiveSessionCoordinator`, fail-private policy, and private status | Resolved locally and API 36 typed-composition verified; prolonged physical thermal measurements were not collected |
 | T122 | Publisher failures were not proactively reflected in coordinator/private status | Typed asynchronous RTMP/controller/port health now reports connection, authentication, network, congestion, queue, fresh epoch, and terminal failure without endpoint or secret payloads | Resolved locally and API 36 private-UI verified; real TikTok remains conditional |
-| T115 benchmark build remediation | Root `connectedCheck` originally selected a debuggable, non-self-instrumenting benchmark and then exposed an unsigned custom test APK | The target is release-derived/nondebuggable, the test APK self-instruments and is signed, both APKs pass `apksigner`, and no benchmark error is suppressed | Build/package defects resolved; physical execution still blocked |
+| Benchmark build remediation | Root `connectedCheck` originally selected a debuggable, non-self-instrumenting benchmark and then exposed an unsigned custom test APK | The target is release-derived/nondebuggable, the test APK self-instruments and is signed, both APKs pass `apksigner`, and no benchmark error is suppressed | Build/package defects resolved; physical performance remains unmeasured and is no longer a task gate |
 | Evidence-document drift | Checked reports said Priority 2/live composition or completed evidence did not exist | README, case study, privacy audit, acceptance matrix, and final-gate report now state the measured boundary and keep unmet claims unmet | Resolved locally |
 
 The exact current benchmark status is recorded in the
@@ -57,104 +58,18 @@ No more OCR device work is authorized in the current scope. T119 therefore remai
 its success criterion is unsupported; host parity cannot substitute for source/package/runtime,
 104/104 DEVELOPMENT, decoded-output, or one-shot HOLDOUT evidence.
 
-## Open blockers
+## Sole open task
 
 | Tasks | Owner/boundary | Why still open |
 |---|---|---|
-| T044 | User + physical device | Independent protected-start evidence requires a real front-camera phone |
-| T071–T072 | User + human participants | At least ten preregistered first-time-user sessions and an honest de-identified report do not exist |
-| T085–T086 | User + optional TikTok account | Eligibility must be observed on an authorized test account; credentials may be unavailable |
-| T106, T107, T108 | User + consented adults/external encrypted store | Capture is not authorized; the 12 clips, their annotations/evaluation, and later scaled face corpus do not exist |
-| T110 | Downstream corpus/evidence | Full 286-record validation is blocked by the missing 12 authorized face records and pending final evidence |
-| T115 | User + physical ARM64 device | All current non-benchmark connected modules are green/expected-skip, but macrobenchmark correctly rejects the emulator |
 | T119 | Frozen unsupported success criterion | Host v5 conversion/parity passed, but the API 23 ARM64 runtime build stopped before compilation/AAR; there is no Android accuracy, decoded-output, or HOLDOUT result |
 
 The repository-safe deletion audit has a zero consented-record denominator; it does not imply an
 external encrypted store was inspected. See the
 [deletion audit](../../docs/verification/evaluation-data-deletion.md).
 
-## External action checklist draft
-
-### Physical-device evidence — T044, T115
-
-- [ ] Provide identified compatible physical ARM64 phones with front cameras and USB debugging;
-  record model/tier, API level, build identifier, lens, resolution, FPS, and test date without
-  account or location identifiers.
-- [ ] Run the current benchmark-inclusive gate without suppression:
-
-  ```bash
-  ./gradlew test lint connectedCheck --continue
-  ```
-
-  Require both macrobenchmark methods to pass on a physical device. Retain terminal XML, reports,
-  command output, APK hashes, and device facts. Never add `androidx.benchmark.suppressErrors`.
-- [ ] Run the staged physical protected-start test for T044 and decode the sanitized output. Record
-  first protectable frame, treatment, video-only tracks, and zero raw bypass in
-  `docs/verification/us1-protected-start.md`; do not retain raw camera media in Git.
-
-### Usability — T071–T072
-
-- [ ] Recruit at least ten eligible first-time adult participants under the frozen
-  [solo-indoor protocol](../../docs/testing/solo-indoor-usability.md); do not replace failures,
-  timeouts, assisted sessions, withdrawals, or product-blocked steps.
-- [ ] Use a controlled room, supplied fictional values, controlled destination, and consenting
-  staff/generated fixtures only. Capture no participant video, screen recording, audio, facial
-  imagery, real PII, account, stream key, or free-form biography.
-- [ ] Store only random study IDs, fixed outcome/assistance codes, durations, comprehension choices,
-  and missing/withdrawal status in the gitignored
-  `evaluation-data/usability/solo-indoor-v1.csv`.
-- [ ] Report exact numerators/denominators, timing distribution, destination completion, health-state
-  comprehension, assistance, withdrawal, and missingness in `docs/verification/us5-usability.md`.
-
-### Consented corpus — T106–T108, T110
-
-- [ ] Obtain an explicit device-validation go decision and prepare the approved encrypted external
-  store, separate authorization mapping, access ledger, absolute deletion deadlines, and withdrawal
-  route under the [capture protocol](../../docs/testing/consented-capture-protocol.md).
-- [ ] Capture only freely consenting adults in an owned controlled room. Exclude incidental people,
-  minors, vulnerable/coerced participants, real private props, microphone audio, uploads, cloud
-  sync, and raw media in Git/app/build artifacts.
-- [ ] Verify every accepted clip has exactly one video stream and zero audio streams:
-
-  ```bash
-  ffprobe -v error -show_entries stream=index,codec_type -of csv=p=0 INPUT.mp4
-  ```
-
-- [ ] Add only opaque authorization/storage/access references to `face-v1.jsonl`; annotate
-  per-frame polygons, session-local track IDs, roles, transforms, and protectable timestamps. Never
-  create identity labels, face crops, embeddings, demographics, or recognized-text artifacts.
-- [ ] After the 12 authorized records exist, validate the 286-record aggregate:
-
-  ```bash
-  cat test-fixtures/manifests/public-v1.jsonl \
-      test-fixtures/manifests/system-v1.jsonl \
-      test-fixtures/manifests/pii-v1.jsonl \
-      test-fixtures/manifests/face-v1.jsonl \
-    > evaluation-data/full-v1.jsonl
-  python3 tools/testdata/validate_manifest.py evaluation-data/full-v1.jsonl \
-    --media-root . --truth-root . --profile full-v1 --expected-count 286
-  ```
-
-- [ ] Expand to T108 scale only after the initial controlled corpus is valid; keep actors,
-  room/motion combinations, adjacent frames, payloads, and generator seeds split-isolated. Re-audit
-  access and deletion at every protocol trigger.
-
-### Optional TikTok eligibility — T085–T086
-
-- [ ] On an explicitly authorized test account, inspect whether TikTok exposes an RTMP server and
-  stream key. Record only `available` or `unavailable` in
-  `docs/verification/tiktok-access.md`; never copy credentials into Git, chat, logs, screenshots,
-  saved state, or evidence.
-- [ ] If unavailable, keep T086 unverified and use the controlled MediaMTX demo. Do not claim the app
-  can intercept TikTok's camera or bypass eligibility.
-- [ ] If available, enter credentials only through masked session-scoped fields, publish silent
-  sanitized video, observe from a separate viewer, stop safely, and audit logs/private state. Record
-  viewer evidence without endpoint or secret in `docs/verification/us6-tiktok.md`.
-
 ## Closeout rule
 
 The non-mutating link, task, and claim consistency review found no additional local actionable gap.
-Every remaining unmet item is either an explicit open task above or an honestly bounded success
-criterion in the [acceptance matrix](../../docs/verification/acceptance-matrix.md). T117 convergence
-can close while T115, T119, and external implementation/evidence tasks remain open; project
-completion cannot.
+T119 is the only open task. Retired external evidence is not treated as completed and remains an
+honestly stated limitation in the [acceptance matrix](../../docs/verification/acceptance-matrix.md).

@@ -2,9 +2,10 @@
 
 Date: 2026-08-13
 
-## Outcome: incomplete
+## Outcome: historical incomplete gate; no longer an open task
 
-T115 remains **open**. The exact root command was executed against the current converged workspace:
+The former T115 task was retired by user decision. This report preserves the exact root command and
+its incomplete physical-benchmark result rather than relabeling it as successful:
 
 ```text
 ./gradlew test lint connectedCheck --continue
@@ -112,7 +113,7 @@ result, HOLDOUT remains sealed, and SC-002/SC-009 remain unmet. See the
 [acceptance matrix](acceptance-matrix.md) and
 [T119 development report](t119-ocr-development.md).
 
-## Exact remaining path to T115 completion
+## Optional future physical completion path
 
 1. Connect an authorized compatible physical ARM64 Android device.
 2. Run the benchmark-inclusive root command without any benchmark suppression.
@@ -120,10 +121,9 @@ result, HOLDOUT remains sealed, and SC-002/SC-009 remain unmet. See the
    terminal host and connected-module results.
 4. Recompute the final report inventory and artifact hashes for that exact current workspace.
 
-Until that happens, T115 is red/open. The current emulator run proves the benchmark packaging and
-instrumentation boundary reaches its intended physical-device rejection; it does not provide valid
-startup or frame-timing measurements.
+The current emulator run proves the benchmark packaging and instrumentation boundary reaches its
+intended physical-device rejection; it does not provide valid startup or frame-timing measurements.
+Physical completion is no longer a task gate.
 
-External work remains separate: physical 30-minute device/thermal evidence, consented face data,
-the usability study, TikTok eligibility/publication, the complete 286-item corpus, and the
-clean-checkout quickstart. None is inferred from this gate.
+Retired external work remains absent: physical endurance evidence, consented face data, usability,
+TikTok eligibility/publication, and the complete 286-item corpus. None is inferred from this gate.

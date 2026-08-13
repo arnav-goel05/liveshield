@@ -150,17 +150,15 @@ claim a completed screenshot-based visual privacy review.
 The following artifacts are absent or incomplete and must be audited when they exist:
 
 - the 12 user-authorized consented face clips, their annotations, access/deletion ledger, and
-  decoded results (T106/T107/T116);
+  decoded results;
 - a future qualifying OCR DEVELOPMENT run followed by separately authorized Noto v2 HOLDOUT and
   decoded-output evidence; current QR 8/8 and zones 32/32 do not compensate for automatic/watchlist
   0/32 each, and SC-002/SC-009 remain unmet;
 - prolonged physical-device traces, screenshots if explicitly captured, crash output,
   microphone-indicator observation, and memory/battery/thermal logs;
-- TikTok credentials and viewer evidence, only if an eligible test account is explicitly provided
-  (T085/T086);
-- a new final gate over the converged T118–T122 workspace. The retained T115 report predates those
-  changes and substituted four module connected tasks for the root benchmark-inclusive
-  `connectedCheck`, so T115 is reopened and its hashes describe only that older snapshot.
+- TikTok credentials and viewer evidence, only if an eligible test account is explicitly provided;
+- a new final gate over the converged T118–T122 workspace. The retained report predates those
+  changes and its hashes describe only that older snapshot; the rerun is no longer a task gate.
 
 Until those exist, this PASS applies only to the current inspected artifacts. Any new dependency,
 permission, telemetry field, media surface, evaluation capture, destination flow, or retained test

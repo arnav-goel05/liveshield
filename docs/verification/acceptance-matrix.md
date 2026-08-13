@@ -68,10 +68,9 @@ synthetic, emulator, or public-regression evidence into a broader claim.
 - Offline dependency and Paddle status: [`paddle-ocr-audit.md`](paddle-ocr-audit.md)
 - Setup/readiness evidence: [`setup.md`](setup.md)
 
-The matrix must be refreshed after a future qualifying OCR DEVELOPMENT result and separately
-authorized HOLDOUT evaluation, physical-device work, the consented corpus, usability study, TikTok
-eligibility decision, and a new final gate over the converged workspace. The recorded T115 gate
-predates T118–T122 and did not execute the root benchmark-inclusive `connectedCheck`, so it is stale
-and reopened rather than evidence of current final completion.
+The matrix must be refreshed after any future qualifying OCR DEVELOPMENT result. Physical-device,
+consented-corpus, usability, TikTok, and final physical-benchmark activities were retired as task
+gates; their absent evidence remains explicit and must not be inferred. The recorded final gate
+predates T118–T122 and is not evidence of current final completion.
 No unmet row may be converted to `MET` merely because its implementation compiles or a narrower
 synthetic test passes.

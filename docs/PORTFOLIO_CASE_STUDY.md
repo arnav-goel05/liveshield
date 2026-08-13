@@ -146,10 +146,9 @@ The project is not “done” merely because most automated gates pass.
 - MediaMTX evidence is a trusted-LAN development result, not production infrastructure or an
   internet-security review.
 
-The next OCR engineering milestone is a qualifying frozen DEVELOPMENT result before any separately
-authorized HOLDOUT run. The next external evidence milestone is user-authorized physical-device and
-consented-corpus work. The earlier T115 final gate is stale after convergence and did not execute the
-root benchmark-inclusive `connectedCheck`; it must be rerun before a final-completion claim. Until
-those complete,
+The sole remaining engineering task is T119: automatic text and watchlist OCR are unsupported.
+Physical-device, consented-corpus, usability, TikTok, and final physical-benchmark work were retired
+as task gates, so their absent evidence remains a limitation rather than pending completion. Until
+T119 is resolved or formally removed,
 LiveShield remains an evidence-led
 prototype with explicit unmet criteria, not a privacy guarantee.

@@ -38,11 +38,11 @@ for those runs; they are not evidence that the current quickstart passed from a 
 | Trusted-LAN demonstration | pinned Docker Compose relay plus installed app | External/manual | Requires Docker, LAN, camera flow, decoded viewer evidence |
 | Encoded fail-private evidence | current video-pipeline instrumentation | Device-bound | Old `-PencodedFixture` quickstart command was stale and removed |
 | Physical performance | `:benchmark:connectedCheck` | Device-blocked | Physical benchmark execution remains absent; prolonged thermal/battery measurements were not collected |
-| Usability | T071/T072 | Human-blocked | Recruitment and outcome report absent |
-| Consented face corpus | T106/T107 | Human/privacy-blocked | Capture must wait for reviewed protocol and external store |
-| Growth corpus | T108 | Later human/data gate | Not part of initial 286-record validation |
-| TikTok publication | T085/T086 | Optional external-account gate | No availability record or credentials test exists |
-| Corpus/privacy acceptance | T110–T112 | Downstream blocked | Depend on missing corpus and complete rerun artifacts |
+| Usability | Retired external evidence | Not collected | Recruitment and outcome report absent |
+| Consented face corpus | Retired external evidence | Not collected | No authorized recordings or external store were provided |
+| Growth corpus | Retired external evidence | Not collected | Not part of the present 274-record inventory |
+| TikTok publication | Optional capability | Unverified | No availability record or credentials test exists |
+| Corpus/privacy acceptance | Partial local evidence | Incomplete | Full corpus still lacks the consented records |
 
 ## Current safe fixture inventory
 
