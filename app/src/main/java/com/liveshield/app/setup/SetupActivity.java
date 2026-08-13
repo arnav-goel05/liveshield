@@ -20,6 +20,8 @@ import com.liveshield.app.session.LiveSessionCoordinator;
 import com.liveshield.app.session.SetupSessionFactory;
 import com.liveshield.privacy.policy.SessionPrivacyConfigurationView;
 import com.liveshield.transport.destination.StreamDestination;
+import com.liveshield.video.geometry.FrameTransform;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
@@ -79,6 +81,7 @@ public final class SetupActivity extends FragmentActivity
     private EditText zoneBottom;
     private int selectedZoneIndex = -1;
     private boolean cameraTransformValidated;
+    private FrameTransform privacyZoneTransform;
     private PrivacyConfigurationListener privacyConfigurationListener = ignored -> { };
     private final IndoorPrivacySetupController indoorPrivacySetup =
             new IndoorPrivacySetupController();
@@ -285,10 +288,10 @@ public final class SetupActivity extends FragmentActivity
     }
 
     /** Re-authorizes output-normalized zones after CameraX validates the rendered transform. */
-    public void acceptVerifiedPrivacyZoneTransform() {
+    public void acceptVerifiedPrivacyZoneTransform(FrameTransform transform) {
+        privacyZoneTransform = java.util.Objects.requireNonNull(transform, "transform");
         cameraTransformValidated = true;
-        IndoorPrivacySetupController.Configuration current = indoorPrivacySetup.snapshot();
-        indoorPrivacySetup.applySafelyTransformedZones(current.activePrivacyZones());
+        applyOutputZonesToSensor();
         renderZoneEditor();
     }
 
@@ -484,6 +487,13 @@ public final class SetupActivity extends FragmentActivity
             indoorPrivacySetup.addPrivacyZone(zone);
             selectedZoneIndex = indoorPrivacySetup.configuredPrivacyZones().size() - 1;
             markEditedZoneUnsafe();
+            // A touch-drawn rectangle is already defined directly in the currently validated
+            // sanitized-output coordinate space. Commit it atomically so the fail-private policy
+            // never blanks the very preview the creator needs to inspect. Numeric edits still
+            // require the explicit confirmation control below.
+            if (cameraTransformValidated) {
+                confirmZoneAlignment();
+            }
         } catch (IllegalArgumentException exception) {
             zoneStatus.setText(R.string.privacy_zone_status_invalid);
         } catch (IllegalStateException exception) {
@@ -553,12 +563,23 @@ public final class SetupActivity extends FragmentActivity
     }
 
     private void confirmZoneAlignment() {
-        if (!cameraTransformValidated) {
+        if (!cameraTransformValidated || privacyZoneTransform == null) {
             return;
         }
-        IndoorPrivacySetupController.Configuration current = indoorPrivacySetup.snapshot();
-        indoorPrivacySetup.applySafelyTransformedZones(current.activePrivacyZones());
+        applyOutputZonesToSensor();
         renderZoneEditor();
+    }
+
+    /** The editor stores displayed-output coordinates; renderer decisions require sensor space. */
+    private void applyOutputZonesToSensor() {
+        List<com.liveshield.privacy.model.NormalizedRect> configured =
+                indoorPrivacySetup.configuredPrivacyZones();
+        ArrayList<com.liveshield.privacy.model.NormalizedRect> sensorZones =
+                new ArrayList<>(configured.size());
+        for (com.liveshield.privacy.model.NormalizedRect outputZone : configured) {
+            sensorZones.add(privacyZoneTransform.mapOutputRectToSensor(outputZone));
+        }
+        indoorPrivacySetup.applySafelyTransformedZones(sensorZones);
     }
 
     private void renderZoneEditor() {

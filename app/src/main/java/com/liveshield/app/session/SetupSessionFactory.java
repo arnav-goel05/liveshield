@@ -118,7 +118,7 @@ public final class SetupSessionFactory {
                         coordinator -> coordinator.onRendererReadiness(readiness)),
                 transform -> {
                     previewTransform.set(transform);
-                    activity.acceptVerifiedPrivacyZoneTransform();
+                    activity.acceptVerifiedPrivacyZoneTransform(transform);
                     transformReady.set(true);
                 },
                 timestamp -> {
