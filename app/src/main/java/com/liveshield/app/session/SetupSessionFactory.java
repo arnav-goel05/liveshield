@@ -20,7 +20,6 @@ import com.liveshield.privacy.policy.SensitiveFindingPolicy;
 import com.liveshield.privacy.session.LiveSession;
 import com.liveshield.privacy.session.LiveSessionStateMachine;
 import com.liveshield.privacy.session.SessionHealth;
-import com.liveshield.privacy.telemetry.PrivacySafeTelemetry;
 import com.liveshield.transport.SanitizedAccessUnitBridge;
 import com.liveshield.video.analysis.FaceAnalysisCoordinator;
 import com.liveshield.video.analysis.VisionScheduler;
@@ -28,7 +27,6 @@ import com.liveshield.video.camera.CameraSessionController;
 import com.liveshield.video.geometry.FrameTransform;
 import com.liveshield.video.output.SanitizedVideoOutput;
 import com.liveshield.video.render.PrivacySurfaceProcessor;
-import com.liveshield.video.thermal.ThermalSafetyController;
 import com.liveshield.vision.face.OfflineFaceAnalyzer;
 import com.liveshield.vision.pii.OfflineBarcodeAnalyzer;
 import com.liveshield.vision.pii.OfflineTextAnalyzer;
@@ -132,20 +130,6 @@ public final class SetupSessionFactory {
         constructed.add(processor);
         ProductionSafetyHealth safetyHealth = new ProductionSafetyHealth(
                 processor::rawQueueDepth, processor::recoveryState);
-        ThermalSafetyController thermal = new ThermalSafetyController(
-                activity,
-                mainExecutor,
-                new PrivacySafeTelemetry(64),
-                state -> {
-                    AppDiagnostics.state(AppDiagnostics.Event.THERMAL_STATE, state);
-                    safetyHealth.updateThermal(state);
-                    if (state == SessionHealth.ThermalState.SEVERE) {
-                        processor.invalidateForSafety();
-                    }
-                    withCoordinator(coordinatorRef,
-                            LiveSessionCoordinator::onSafetyHealthChanged);
-                });
-        constructed.add(thermal);
         AtomicReference<SanitizedVideoOutput> outputReference = new AtomicReference<>();
         SessionPublicationPort publication = new SessionPublicationPort(
                 SessionPublicationPort.DEFAULT_MAX_QUEUE_BYTES,
@@ -242,7 +226,6 @@ public final class SetupSessionFactory {
                 cameraGraph,
                 output::close,
                 () -> {
-                    thermal.close();
                     processor.close();
                     renderExecutor.shutdown();
                 },

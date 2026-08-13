@@ -61,21 +61,6 @@ public final class ProductionSafetyCompositionTest {
                          ActivityScenario.launch(LiveActivity.class)) {
                 assertPrivateLabel(R.string.live_status_healthy_label);
 
-                fixture.health.updateThermal(SessionHealth.ThermalState.WARNING);
-                fixture.coordinator.onSafetyHealthChanged();
-                assertEquals(SessionState.DEGRADED, fixture.coordinator.snapshot().state());
-                assertPrivateLabel(R.string.live_status_degraded_label);
-
-                fixture.health.updateThermal(SessionHealth.ThermalState.SEVERE);
-                fixture.coordinator.onSafetyHealthChanged();
-                assertEquals(SessionState.SHIELDING, fixture.coordinator.snapshot().state());
-                assertPrivateLabel(R.string.live_status_shielding_label);
-                fixture.frame(200L);
-                assertEquals(FramePrivacyDecision.Status.FULL_SHIELD,
-                        fixture.decision(200L).status());
-                fixture.recoverAfterThermal(300L);
-                assertPrivateLabel(R.string.live_status_healthy_label);
-
                 fixture.health.updateScene(SessionHealth.SceneState.CHANGED);
                 fixture.coordinator.onSafetyHealthChanged();
                 assertShielding(fixture);
@@ -146,7 +131,7 @@ public final class ProductionSafetyCompositionTest {
                 new AtomicReference<>(SessionHealth.RecoveryState.SAFE);
         ProductionSafetyHealth health =
                 new ProductionSafetyHealth(rawDepth::get, recovery::get);
-        health.updateThermal(SessionHealth.ThermalState.NOMINAL);
+        assertEquals(SessionHealth.ThermalState.NOMINAL, health.thermalState());
         FakeCamera camera = new FakeCamera();
         BoundedFrameDecisionStore decisions = new BoundedFrameDecisionStore(12, 10_000L);
         PriorityTwoPrivacyPolicyEngine policy = new PriorityTwoPrivacyPolicyEngine(
@@ -246,7 +231,6 @@ public final class ProductionSafetyCompositionTest {
 
         private void recover(long nanos) {
             recovery.set(SessionHealth.RecoveryState.VERIFIED);
-            health.updateThermal(SessionHealth.ThermalState.NOMINAL);
             health.updateScene(SessionHealth.SceneState.STABLE);
             rawDepth.set(0);
             frame(nanos);
@@ -255,20 +239,6 @@ public final class ProductionSafetyCompositionTest {
             assertEquals(SessionState.LIVE, coordinator.snapshot().state());
         }
 
-        private void recoverAfterThermal(long firstNanos) {
-            recovery.set(SessionHealth.RecoveryState.VERIFIED);
-            health.updateThermal(SessionHealth.ThermalState.NOMINAL);
-            frame(firstNanos);
-            assertEquals(FramePrivacyDecision.Status.FULL_SHIELD,
-                    decision(firstNanos).status());
-            frame(firstNanos + 100L);
-            assertEquals(FramePrivacyDecision.Status.FULL_SHIELD,
-                    decision(firstNanos + 100L).status());
-            frame(firstNanos + 200L);
-            assertEquals(FramePrivacyDecision.Status.REGIONAL_SAFE,
-                    decision(firstNanos + 200L).status());
-            assertEquals(SessionState.LIVE, coordinator.snapshot().state());
-        }
     }
 
     private static final class FakeCamera implements LiveSessionCoordinator.CameraGraph {

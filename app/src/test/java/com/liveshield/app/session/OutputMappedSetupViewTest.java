@@ -8,6 +8,7 @@ import com.liveshield.app.setup.SetupView;
 import com.liveshield.privacy.model.CoordinateTransform;
 import com.liveshield.privacy.model.NormalizedRect;
 import com.liveshield.video.geometry.FrameTransform;
+import com.liveshield.video.render.GlRedactionRenderer;
 import java.util.List;
 import org.junit.Test;
 
@@ -25,9 +26,15 @@ public final class OutputMappedSetupViewTest {
         view.showSelectableFaces(List.of(new SelectableFace(
                 7L, new NormalizedRect(0.10, 0.20, 0.30, 0.40), true)), 7L);
 
-        assertEquals(List.of(new SelectableFace(
-                7L, transform.mapSensorRectToOutput(
-                        new NormalizedRect(0.10, 0.20, 0.30, 0.40)), true)), delegate.faces);
+        NormalizedRect mapped = transform.mapSensorRectToOutput(
+                new NormalizedRect(0.10, 0.20, 0.30, 0.40));
+        double padding = GlRedactionRenderer.COMPRESSION_GUARD_PADDING;
+        NormalizedRect padded = new NormalizedRect(
+                Math.max(0.0, mapped.left() - padding),
+                Math.max(0.0, mapped.top() - padding),
+                Math.min(1.0, mapped.right() + padding),
+                Math.min(1.0, mapped.bottom() + padding));
+        assertEquals(List.of(new SelectableFace(7L, padded, true)), delegate.faces);
         assertEquals(Long.valueOf(7L), delegate.selectedTrack);
     }
 

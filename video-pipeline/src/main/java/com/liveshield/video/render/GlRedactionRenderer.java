@@ -25,7 +25,7 @@ import java.util.Objects;
  * GPU renderer that either applies certified opaque coverage or replaces the complete frame.
  *
  * <p>Blur is intentionally not implemented. Every regional action, including a requested blur,
- * is strengthened to opaque coverage until an encoded-output blur gate is certified.</p>
+ * is strengthened to opaque coverage.</p>
  */
 public final class GlRedactionRenderer {
     private static final int BYTES_PER_FLOAT = 4;
@@ -85,7 +85,7 @@ public final class GlRedactionRenderer {
             return;
         }
 
-        List<NormalizedRect> outputBounds = outputBounds(decision, frameTransform);
+        List<NormalizedRect> outputBounds = paddedOutputBounds(decision, frameTransform);
         if (outputBounds == null) {
             clearColor(FULL_SHIELD_COLOR, width, height);
             return;
@@ -94,13 +94,13 @@ public final class GlRedactionRenderer {
         setClearColor(OPAQUE_MASK_COLOR);
         for (NormalizedRect bounds : outputBounds) {
             int left = clampPixel((int) Math.floor(
-                    (bounds.left() - COMPRESSION_GUARD_PADDING) * width), width);
+                    bounds.left() * width), width);
             int right = clampPixel((int) Math.ceil(
-                    (bounds.right() + COMPRESSION_GUARD_PADDING) * width), width);
+                    bounds.right() * width), width);
             int top = clampPixel((int) Math.floor(
-                    (bounds.top() - COMPRESSION_GUARD_PADDING) * height), height);
+                    bounds.top() * height), height);
             int bottom = clampPixel((int) Math.ceil(
-                    (bounds.bottom() + COMPRESSION_GUARD_PADDING) * height), height);
+                    bounds.bottom() * height), height);
             if (right <= left || bottom <= top) {
                 clearColor(FULL_SHIELD_COLOR, width, height);
                 return;
@@ -112,7 +112,7 @@ public final class GlRedactionRenderer {
         checkGl("apply privacy decision");
     }
 
-    private static List<NormalizedRect> outputBounds(
+    static List<NormalizedRect> paddedOutputBounds(
             FramePrivacyDecision decision, FrameTransform transform) {
         List<NormalizedRect> result = new ArrayList<>();
         try {
@@ -127,7 +127,11 @@ public final class GlRedactionRenderer {
                             VideoDiagnostics.Event.MASK_OUTPUT_BOUNDS,
                             region.category(),
                             output.left(), output.top(), output.right(), output.bottom());
-                    result.add(output);
+                    result.add(new NormalizedRect(
+                            Math.max(0.0, output.left() - COMPRESSION_GUARD_PADDING),
+                            Math.max(0.0, output.top() - COMPRESSION_GUARD_PADDING),
+                            Math.min(1.0, output.right() + COMPRESSION_GUARD_PADDING),
+                            Math.min(1.0, output.bottom() + COMPRESSION_GUARD_PADDING)));
                     if (result.size() > MAX_PROTECTED_BOUNDS) {
                         return null;
                     }

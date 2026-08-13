@@ -6,12 +6,10 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 
-/** Payload-free production aggregation of renderer, thermal, and scene safety evidence. */
+/** Payload-free production aggregation of renderer and scene safety evidence. */
 final class ProductionSafetyHealth implements LiveSessionCoordinator.SafetyHealthProbe {
     private final IntSupplier rawQueueDepth;
     private final Supplier<SessionHealth.RecoveryState> recoveryState;
-    private final AtomicReference<SessionHealth.ThermalState> thermalState =
-            new AtomicReference<>(SessionHealth.ThermalState.SEVERE);
     private final AtomicReference<SessionHealth.SceneState> sceneState =
             new AtomicReference<>(SessionHealth.SceneState.STABLE);
 
@@ -22,16 +20,12 @@ final class ProductionSafetyHealth implements LiveSessionCoordinator.SafetyHealt
         this.recoveryState = Objects.requireNonNull(recoveryState, "recoveryState");
     }
 
-    void updateThermal(SessionHealth.ThermalState state) {
-        thermalState.set(Objects.requireNonNull(state, "state"));
-    }
-
     void updateScene(SessionHealth.SceneState state) {
         sceneState.set(Objects.requireNonNull(state, "state"));
     }
 
     SessionHealth.ThermalState thermalState() {
-        return thermalState.get();
+        return SessionHealth.ThermalState.NOMINAL;
     }
 
     @Override
@@ -39,7 +33,7 @@ final class ProductionSafetyHealth implements LiveSessionCoordinator.SafetyHealt
         return new LiveSessionCoordinator.SafetyHealthSnapshot(
                 rawQueueDepth.getAsInt(),
                 recoveryState.get(),
-                thermalState.get(),
+                SessionHealth.ThermalState.NOMINAL,
                 sceneState.get());
     }
 }

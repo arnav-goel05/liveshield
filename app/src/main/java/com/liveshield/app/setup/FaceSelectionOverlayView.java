@@ -36,13 +36,13 @@ public final class FaceSelectionOverlayView extends View {
         for (int index = faces.size() - 1; index >= 0; index--) {
             SelectableFace face = faces.get(index);
             if (face.fresh() && toPixels(face).contains(event.getX(), event.getY())) {
-                AppDiagnostics.info(AppDiagnostics.Event.FACE_MASK_TAP_HIT);
+                AppDiagnostics.info(AppDiagnostics.Event.FACE_REGION_TAP_HIT);
                 performClick();
                 listener.onFaceSelected(face.trackId());
                 return true;
             }
         }
-        AppDiagnostics.info(AppDiagnostics.Event.FACE_MASK_TAP_MISS);
+        AppDiagnostics.info(AppDiagnostics.Event.FACE_REGION_TAP_MISS);
         return true;
     }
 
