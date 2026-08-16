@@ -214,6 +214,8 @@ public final class VisionSchedulerTest {
                 () -> new VisionScheduler.Configuration(10, 100, 50, 200, 49, 30, 500));
         assertThrows(IllegalArgumentException.class,
                 () -> CONFIGURATION.withEnabledLanes(Set.of(DetectorLane.BARCODE)));
+        assertEquals(3_000,
+                CONFIGURATION.withMaxValidityNanos(3_000).maxValidityNanos());
     }
 
     @Test

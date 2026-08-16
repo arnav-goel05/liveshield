@@ -46,7 +46,7 @@ physical devices; initial 286-item corpus comprising 200 WIDER FACE images, 16 B
 images, 12 deterministic renderer clips, 12 consented face-tracking clips, 26 synthetic
 Priority 2 appearances, and 20 fault-injection clips; public subsets are detector-only evidence
 
-**Target Platform**: Android 6.0+ (`minSdk 23`), compile SDK 37 and target SDK 36 initially; compile
+**Target Platform**: Android 7.0+ (`minSdk 24`), compile SDK 37 and target SDK 36 initially; compile
 SDK 37 is required by the pinned RootEncoder RTMP 2.8.0 artifact and does not change V1 runtime
 behavior or the target-SDK contract; portrait-first
 720p/30 fps controlled indoor sessions on physical Android phones

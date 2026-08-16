@@ -34,6 +34,20 @@ public final class OcrPrivacyClassifier {
                 recognizedText.length(), elements, matches, bufferToOutput, options);
     }
 
+    /** Maps only exact creator-entered private words; automatic PII patterns are disabled. */
+    public List<OcrRegionMapper.MappedRegion> classifyWatchlistOnly(
+            String recognizedText,
+            List<OcrRegionMapper.OcrElement> elements,
+            Set<String> normalizedWatchlistTerms,
+            CoordinateTransform bufferToOutput,
+            OcrRegionMapper.MappingOptions options) {
+        Objects.requireNonNull(recognizedText, "recognizedText");
+        List<StructuredPiiValidator.Match> matches = validator.validateWatchlistOnly(
+                recognizedText, normalizedWatchlistTerms);
+        return mapper.map(
+                recognizedText.length(), elements, matches, bufferToOutput, options);
+    }
+
     @Override
     public String toString() {
         return "OcrPrivacyClassifier[payload-free]";

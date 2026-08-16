@@ -16,8 +16,8 @@ consented-corpus work can support physical camera, performance, or temporal face
 
 - A committed Git revision that contains the repository.
 - Android Studio JBR/JDK 17, Android SDK platform 37 for compilation, build-tools/platform-tools,
-  and an API 36 ARM64 emulator. The app targets API 36 and supports API 23+.
-- A physical ARM64 Android 6.0+ phone with a front camera and USB debugging for the device-only
+  and an API 36 ARM64 emulator. The app targets API 36 and supports API 24+.
+- A physical ARM64 Android 7.0+ phone with a front camera and USB debugging for the device-only
   sections. Emulator results do not replace those sections.
 - Python 3 using only the standard library for manifest tooling; `ffmpeg` and `ffprobe` for
   deterministic silent H.264 fixture generation.

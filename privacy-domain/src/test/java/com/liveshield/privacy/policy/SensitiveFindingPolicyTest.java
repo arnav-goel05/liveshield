@@ -34,25 +34,25 @@ public final class SensitiveFindingPolicyTest {
         SensitiveFindingPolicy.Result result = evaluate(
                 100,
                 List.of(
-                        snapshot(DetectorLane.TEXT, 100, FindingCategory.AUTO_EMAIL),
+                        snapshot(DetectorLane.TEXT, 100, FindingCategory.WATCHLIST_MATCH),
                         snapshot(DetectorLane.BARCODE, 100, FindingCategory.AUTO_BARCODE)),
                 false);
 
         assertEquals(SensitiveFindingPolicy.Basis.FRESH, result.basis());
-        assertEquals(List.of(FindingCategory.AUTO_EMAIL, FindingCategory.AUTO_BARCODE),
+        assertEquals(List.of(FindingCategory.WATCHLIST_MATCH, FindingCategory.AUTO_BARCODE),
                 result.regions().stream().map(ProtectedRegion::category).toList());
     }
 
     @Test
     public void oneFreshLaneDoesNotRefreshOtherLaneCarryAge() {
         evaluate(100, List.of(
-                snapshot(DetectorLane.TEXT, 100, FindingCategory.AUTO_EMAIL),
+                snapshot(DetectorLane.TEXT, 100, FindingCategory.WATCHLIST_MATCH),
                 snapshot(DetectorLane.BARCODE, 100, FindingCategory.AUTO_BARCODE)), false);
 
         SensitiveFindingPolicy.Result carried = evaluate(110,
-                List.of(snapshot(DetectorLane.TEXT, 110, FindingCategory.AUTO_PHONE)), false);
+                List.of(snapshot(DetectorLane.TEXT, 110, FindingCategory.WATCHLIST_MATCH)), false);
         SensitiveFindingPolicy.Result stale = evaluate(141,
-                List.of(snapshot(DetectorLane.TEXT, 141, FindingCategory.AUTO_PHONE)), false);
+                List.of(snapshot(DetectorLane.TEXT, 141, FindingCategory.WATCHLIST_MATCH)), false);
 
         assertEquals(SensitiveFindingPolicy.Basis.CARRIED, carried.basis());
         assertEquals(SensitiveFindingPolicy.Basis.SHIELD_REQUIRED, stale.basis());
@@ -75,6 +75,48 @@ public final class SensitiveFindingPolicyTest {
     }
 
     @Test
+    public void delayedFreshAssessmentGetsFullCarryWindowAfterAcceptance() {
+        DetectorSnapshot delayedText = DetectorSnapshot.success(
+                DetectorLane.TEXT,
+                FrameTimestamp.ofNanos(100),
+                FrameTimestamp.ofNanos(160),
+                List.of(region(FindingCategory.WATCHLIST_MATCH)));
+        DetectorSnapshot delayedBarcode = DetectorSnapshot.success(
+                DetectorLane.BARCODE,
+                FrameTimestamp.ofNanos(100),
+                FrameTimestamp.ofNanos(160),
+                List.of(region(FindingCategory.AUTO_BARCODE)));
+
+        assertEquals(SensitiveFindingPolicy.Basis.FRESH,
+                evaluate(150, List.of(delayedText, delayedBarcode), false).basis());
+        assertEquals(SensitiveFindingPolicy.Basis.CARRIED,
+                evaluate(160, List.of(), false).basis());
+        assertEquals(SensitiveFindingPolicy.Basis.EXPANDED,
+                evaluate(180, List.of(), false).basis());
+        assertEquals(SensitiveFindingPolicy.Basis.SHIELD_REQUIRED,
+                evaluate(181, List.of(), false).basis());
+    }
+
+    @Test
+    public void expiredSnapshotCannotBeReacceptedUntilANewerAssessmentArrives() {
+        List<DetectorSnapshot> initial = List.of(
+                snapshot(DetectorLane.TEXT, 100, FindingCategory.WATCHLIST_MATCH),
+                snapshot(DetectorLane.BARCODE, 100, FindingCategory.AUTO_BARCODE));
+        evaluate(100, initial, false);
+
+        assertEquals(SensitiveFindingPolicy.Basis.SHIELD_REQUIRED,
+                evaluate(131, initial, false).basis());
+        assertEquals(SensitiveFindingPolicy.Basis.SHIELD_REQUIRED,
+                evaluate(132, initial, false).basis());
+
+        List<DetectorSnapshot> replacement = List.of(
+                snapshot(DetectorLane.TEXT, 133, FindingCategory.WATCHLIST_MATCH),
+                snapshot(DetectorLane.BARCODE, 133, FindingCategory.AUTO_BARCODE));
+        assertEquals(SensitiveFindingPolicy.Basis.FRESH,
+                evaluate(133, replacement, false).basis());
+    }
+
+    @Test
     public void changedSceneInvalidatesCarryUntilExactFrameFreshAssessments() {
         evaluate(100, freshBoth(100), false);
 
@@ -90,7 +132,7 @@ public final class SensitiveFindingPolicyTest {
     }
 
     @Test
-    public void detectorFailureClearsOnlyUnsafeAuthorizationAndShields() {
+    public void detectorFailureCarriesPriorProtectionButCannotExtendItsAge() {
         evaluate(100, freshBoth(100), false);
         TypedFailure failure = new TypedFailure(
                 TypedFailure.Code.ANALYZER_ERROR, FrameTimestamp.ofNanos(105));
@@ -101,9 +143,11 @@ public final class SensitiveFindingPolicyTest {
         SensitiveFindingPolicy.Result afterFailure = evaluate(106,
                 List.of(snapshot(
                         DetectorLane.BARCODE, 106, FindingCategory.AUTO_BARCODE)), false);
+        SensitiveFindingPolicy.Result expired = evaluate(131, List.of(), false);
 
-        assertEquals(SensitiveFindingPolicy.Basis.SHIELD_REQUIRED, failed.basis());
-        assertEquals(SensitiveFindingPolicy.Basis.SHIELD_REQUIRED, afterFailure.basis());
+        assertEquals(SensitiveFindingPolicy.Basis.CARRIED, failed.basis());
+        assertEquals(SensitiveFindingPolicy.Basis.CARRIED, afterFailure.basis());
+        assertEquals(SensitiveFindingPolicy.Basis.SHIELD_REQUIRED, expired.basis());
     }
 
     @Test
@@ -119,7 +163,7 @@ public final class SensitiveFindingPolicyTest {
     public void regionAndSnapshotBoundsFailPrivateAndClearCarry() {
         List<ProtectedRegion> tooMany = new ArrayList<>();
         for (int index = 0; index < 4; index++) {
-            tooMany.add(region(FindingCategory.AUTO_EMAIL));
+            tooMany.add(region(FindingCategory.WATCHLIST_MATCH));
         }
         DetectorSnapshot overflow = DetectorSnapshot.success(
                 DetectorLane.TEXT,
@@ -192,7 +236,7 @@ public final class SensitiveFindingPolicyTest {
 
     private static List<DetectorSnapshot> freshBoth(long timestamp) {
         return List.of(
-                snapshot(DetectorLane.TEXT, timestamp, FindingCategory.AUTO_EMAIL),
+                snapshot(DetectorLane.TEXT, timestamp, FindingCategory.WATCHLIST_MATCH),
                 snapshot(DetectorLane.BARCODE, timestamp, FindingCategory.AUTO_BARCODE));
     }
 

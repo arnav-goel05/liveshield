@@ -26,6 +26,7 @@ dependencies {
     coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:${rootProject.ext.versions.desugarJdkLibs}"
     implementation project(':privacy-domain')
     implementation files('libs/paddle-lite-2.11/PaddlePredictor.jar')
+    implementation files('libs/onnxruntime-1.28-api24/onnxruntime-android-1.28.0.aar')
     api "androidx.concurrent:concurrent-futures:${rootProject.ext.versions.concurrentFutures}"
     implementation "androidx.camera:camera-core:${rootProject.ext.versions.cameraX}"
     implementation "org.opencv:opencv:${rootProject.ext.versions.openCv}"
@@ -111,7 +112,7 @@ tasks.named('check').configure {
 
 tasks.register('verifyPaddleOcrArtifacts') {
     group = 'verification'
-    description = 'Verifies the frozen operational PP-OCRv3 detector and recognizer artifacts.'
+    description = 'Verifies the PP-OCRv3 detector and English PP-OCRv5 watchlist recognizer.'
     Map<File, Map<String, Object>> artifacts = [
         (file('libs/paddle-lite-2.11/PaddlePredictor.jar')): [
             size: 9173L,
@@ -122,12 +123,21 @@ tasks.register('verifyPaddleOcrArtifacts') {
         (file('src/main/assets/models/paddleocr/en_PP-OCRv3_det_slim_infer.nb')): [
             size: 925070L,
             sha256: '9d3c629313d47d203385216a756610eb00ee2496a06ff724cc34904deda70f22'],
-        (file('src/main/assets/models/paddleocr/en_PP-OCRv3_rec_slim_infer.nb')): [
-            size: 3313574L,
-            sha256: '053b3a99fc88233c5ea5fda10141cf2f9c81e93ca2b74ce3dcf8208d3e80185d'],
-        (file('src/main/assets/models/paddleocr/en_dict.txt')): [
-            size: 190L,
-            sha256: '5662df9d2d03f0e8ca0d3b0649d6acbab904b6a14b3d3521463c71c37c668ce3'],
+        (file('libs/onnxruntime-1.28-api24/onnxruntime-android-1.28.0.aar')): [
+            size: 45634470L,
+            sha256: 'f351a0638696f54b35184290dbc001d66daae17281ad0b548d2c70347d53b8a9'],
+        (file('src/main/assets/models/paddleocr/en_PP-OCRv5_mobile_rec.onnx')): [
+            size: 7843511L,
+            sha256: '70b2450eed39599af6b996c27a2f1a0ef30eeb49f9f66dd3e74f28f652befc89'],
+        (file('src/main/assets/models/paddleocr/en_PP-OCRv5_dict.txt')): [
+            size: 1416L,
+            sha256: 'e025a66d31f327ba0c232e03f407ae8d105e1e709e7ccb3f408aa778c24e70d6'],
+        (file('src/main/assets/models/paddleocr/EN_PP_OCRV5_PROVENANCE.properties')): [
+            size: 1097L,
+            sha256: 'e50dadb1616f09706958328bf566e50450a0a34d23bd51907b31b62a86216c7c'],
+        (file('src/main/assets/models/paddleocr/licenses/ONNX-Runtime-LICENSE.txt')): [
+            size: 1073L,
+            sha256: '2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c'],
         (file('src/main/assets/models/paddleocr/licenses/Paddle-Lite-LICENSE.txt')): [
             size: 11438L,
             sha256: 'ff6311c56c1b22c9209c96cc8afc16da91c24ee55a15e14ebc46fe1960dbd856'],
@@ -149,8 +159,7 @@ tasks.register('verifyPaddleOcrArtifacts') {
             }
         }
         Map<File, String> optimizerVersions = [
-            (file('src/main/assets/models/paddleocr/en_PP-OCRv3_det_slim_infer.nb')): 'v2.10',
-            (file('src/main/assets/models/paddleocr/en_PP-OCRv3_rec_slim_infer.nb')): 'v2.11-rc']
+            (file('src/main/assets/models/paddleocr/en_PP-OCRv3_det_slim_infer.nb')): 'v2.10']
         optimizerVersions.each { model, expectedVersion ->
             byte[] header = model.bytes
             int metaVersion = (header[0] & 0xff) | ((header[1] & 0xff) << 8)
@@ -193,17 +202,20 @@ tasks.register('verifyPaddleOcrArtifacts') {
                 || !expectedProvenance.every { key, value -> provenance.getProperty(key) == value }) {
             throw new GradleException('Paddle runtime provenance manifest does not match audit')
         }
-        String dictionary = file('src/main/assets/models/paddleocr/en_dict.txt').getText('UTF-8')
+        String dictionary = file('src/main/assets/models/paddleocr/en_PP-OCRv5_dict.txt')
+            .getText('UTF-8')
         List<String> dictionaryLines = dictionary.readLines()
-        if (dictionaryLines.size() != 95 || dictionaryLines.last() != ' '
+        if (dictionaryLines.size() != 436
                 || !'@._+-/:()'.every { dictionaryLines.contains(it.toString()) }) {
-            throw new GradleException('PP-OCRv3 dictionary contract does not match audit')
+            throw new GradleException('English PP-OCRv5 dictionary contract does not match audit')
         }
         List<File> forbiddenCandidates = [
             file('src/main/assets/models/opencv-crnn'),
             file('src/main/assets/models/paddleocr/PP-OCRv5_mobile_rec.nb'),
             file('src/main/assets/models/paddleocr/ppocr_keys_ocrv5.txt'),
-            file('libs/paddle-lite-2.14-rc')]
+            file('libs/paddle-lite-2.14-rc'),
+            file('src/main/assets/models/paddleocr/en_PP-OCRv3_rec_slim_infer.nb'),
+            file('src/main/assets/models/paddleocr/en_dict.txt')]
         List<File> presentCandidates = forbiddenCandidates.findAll { it.exists() }
         if (!presentCandidates.isEmpty()) {
             throw new GradleException("Experimental OCR candidate remains packaged: ${presentCandidates}")
@@ -218,7 +230,8 @@ tasks.register('verifyOfflineOcrReleaseBoundary') {
     doLast {
         List<String> forbidden = [
             'java.net.', 'android.net.', 'okhttp', 'retrofit', 'DownloadManager',
-            'HttpURLConnection', 'Socket', 'Telemetry', 'Log.', 'System.out', 'System.err'
+            'HttpURLConnection', 'Socket', 'setTelemetry(true)',
+            'Log.', 'System.out', 'System.err'
         ]
         inputs.files.each { sourceFile ->
             String source = sourceFile.getText('UTF-8')
@@ -226,6 +239,11 @@ tasks.register('verifyOfflineOcrReleaseBoundary') {
             if (match != null) {
                 throw new GradleException("Offline OCR boundary contains ${match}: ${sourceFile}")
             }
+        }
+        File engine = file(
+            'src/main/java/com/liveshield/vision/pii/PaddleLiteTextRecognitionEngine.java')
+        if (!engine.getText('UTF-8').contains('environment.setTelemetry(false);')) {
+            throw new GradleException('ONNX Runtime telemetry is not explicitly disabled')
         }
         File manifest = file('src/main/AndroidManifest.xml')
         if (manifest.exists()) {

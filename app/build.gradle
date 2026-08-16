@@ -147,10 +147,13 @@ tasks.register('verifyReleaseOcrArm64Packaging') {
             }
             List<String> requiredAssets = [
                 'assets/models/paddleocr/en_PP-OCRv3_det_slim_infer.nb',
-                'assets/models/paddleocr/en_PP-OCRv3_rec_slim_infer.nb',
-                'assets/models/paddleocr/en_dict.txt',
+                'assets/models/paddleocr/en_PP-OCRv5_mobile_rec.onnx',
+                'assets/models/paddleocr/en_PP-OCRv5_dict.txt',
+                'assets/models/paddleocr/EN_PP_OCRV5_PROVENANCE.properties',
                 'assets/models/paddleocr/licenses/PaddleOCR-LICENSE.txt',
-                'assets/models/paddleocr/licenses/Paddle-Lite-LICENSE.txt'
+                'assets/models/paddleocr/licenses/Paddle-Lite-LICENSE.txt',
+                'assets/models/paddleocr/licenses/ONNX-Runtime-LICENSE.txt',
+                'lib/arm64-v8a/libonnxruntime.so'
             ]
             List<String> missing = requiredAssets.findAll { !entries.contains(it) }
             if (!missing.isEmpty()) {

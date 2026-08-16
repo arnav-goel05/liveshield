@@ -12,7 +12,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.List;
 
-/** Copies only hash-verified, bundled PaddleOCR assets to private model storage. */
+/** Copies only hash-verified, bundled offline OCR assets to private model storage. */
 final class PaddleOcrAssets {
     static final Asset DETECTOR = new Asset(
             "models/paddleocr/en_PP-OCRv3_det_slim_infer.nb",
@@ -20,25 +20,25 @@ final class PaddleOcrAssets {
             925_070L,
             "9d3c629313d47d203385216a756610eb00ee2496a06ff724cc34904deda70f22",
             "v2.10");
-    static final Asset RECOGNIZER = new Asset(
-            "models/paddleocr/en_PP-OCRv3_rec_slim_infer.nb",
-            "en_PP-OCRv3_rec_slim_infer.nb",
-            3_313_574L,
-            "053b3a99fc88233c5ea5fda10141cf2f9c81e93ca2b74ce3dcf8208d3e80185d",
-            "v2.11-rc");
-    static final Asset DICTIONARY = new Asset(
-            "models/paddleocr/en_dict.txt",
-            "en_dict.txt",
-            190L,
-            "5662df9d2d03f0e8ca0d3b0649d6acbab904b6a14b3d3521463c71c37c668ce3",
+    static final Asset RECOGNIZER_ONNX = new Asset(
+            "models/paddleocr/en_PP-OCRv5_mobile_rec.onnx",
+            "en_PP-OCRv5_mobile_rec.onnx",
+            7_843_511L,
+            "70b2450eed39599af6b996c27a2f1a0ef30eeb49f9f66dd3e74f28f652befc89",
             null);
-    private static final List<Asset> ASSETS = List.of(DETECTOR, RECOGNIZER, DICTIONARY);
+    static final Asset DICTIONARY = new Asset(
+            "models/paddleocr/en_PP-OCRv5_dict.txt",
+            "en_PP-OCRv5_dict.txt",
+            1_416L,
+            "e025a66d31f327ba0c232e03f407ae8d105e1e709e7ccb3f408aa778c24e70d6",
+            null);
+    private static final List<Asset> ASSETS = List.of(DETECTOR, RECOGNIZER_ONNX, DICTIONARY);
 
     private PaddleOcrAssets() {
     }
 
     static File verifiedPrivateCopy(Context context, Asset asset) {
-        File directory = new File(context.getNoBackupFilesDir(), "paddleocr-v3");
+        File directory = new File(context.getNoBackupFilesDir(), "liveshield-ocr-v5");
         if (!directory.exists() && !directory.mkdir()) {
             throw new IllegalStateException("Unable to create private OCR model directory");
         }
@@ -82,10 +82,9 @@ final class PaddleOcrAssets {
         } catch (IOException exception) {
             throw new IllegalStateException("Unable to read bundled OCR dictionary", exception);
         }
-        // The audited PP-OCRv3 configuration enables use_space_char. The official dictionary
-        // already ends in a space entry, so this deliberately preserves the exported duplicate.
+        // The v5 configuration embeds 436 entries and enables one appended space entry.
         characters.add(" ");
-        if (characters.size() != 96 || characters.stream().anyMatch(String::isEmpty)) {
+        if (characters.size() != 437 || characters.stream().anyMatch(String::isEmpty)) {
             throw new IllegalStateException("Unexpected bundled OCR dictionary contract");
         }
         return List.copyOf(characters);
@@ -145,8 +144,7 @@ final class PaddleOcrAssets {
     }
 
     static boolean runtimeSupportsOptimizer(String runtime, String optimizer) {
-        return "v2.11".equals(runtime)
-                && ("v2.10".equals(optimizer) || "v2.11-rc".equals(optimizer));
+        return "v2.11".equals(runtime) && "v2.10".equals(optimizer);
     }
 
     record Asset(

@@ -1,6 +1,7 @@
 # T119 OCR DEVELOPMENT investigation
 
-**Status:** stopped; offline automatic text and configured-watchlist protection are unsupported.  
+**Status:** private-word-only implementation is source/package verified; device behavior and
+accuracy remain unverified. Automatic text classification is disabled.
 **Frozen current corpus:** `pii-v1` SHA-256
 `9ed88a9bf6b3f66649ea6cc35ed4b74aa30a39fb17d1c3710cd63b39da219bd2`.  
 **HOLDOUT:** sealed after deterministic generation; it was not staged, inspected, or evaluated
@@ -64,11 +65,11 @@ configuration had SHA-256
 `924b5ca95aa9dc834e6e5d8ce31eed78fba767a42882c4f6eb4df7b693c1767a`. Host-gate downloads were
 39,983,009 bytes against a 100 MB allowance.
 
-The preregistered Android build pinned ORT v1.26.0 commit
+The historical custom Android build pinned ORT v1.26.0 commit
 `8c546c37b43caaca1fa25db430dab94b901cf277`, NDK 28.0.13004108, Release, ARM64 only,
 `minSdk=23`, `targetSdk=36`, CPU only, LTO, Java/shared library, minimal extended runtime, and
-reduced type support. Its limits were 3 GiB network, 12 GiB disk, 16 MiB stripped JNI, 18 MiB AAR,
-and 25 MiB compressed APK delta including the model. The Docker daemon was unhealthy, so no Docker
+reduced type support. Those historical size limits were later removed by an explicit product
+decision to require API 24 and accept the stock runtime. The Docker daemon was unhealthy, so no Docker
 reset or mutation was attempted. The official local build reached the exact CMake/vcpkg
 configuration, but vcpkg stopped while preparing `abseil` because the host lacked `pkg-config`.
 No ORT JNI or AAR was produced.
@@ -81,22 +82,40 @@ HTTP byte counter; the build stopped early after the shallow source, SDK compone
 and first dependency downloads, with no evidence that the 3 GiB network allowance was approached.
 This is deliberately not reported as an exact transfer-byte total.
 
-Therefore the reproducible-build hashes, JNI/AAR/APK size ceilings, API-23 manifest, ARM64-only
+Therefore the custom-build reproducibility, JNI/AAR, API-23 manifest, ARM64-only
 package, 16 KiB ELF load alignment, Java load/API suitability, and offline release-dependency gates
 are **UNPROVEN**. Per the preregistered stop rule, `pkg-config` was not installed and the build was
 not retried. The exact NDK/CMake acquisitions were uninstalled and the isolated build directory was
-moved to Trash; shared caches and the workspace baseline were not removed. There will be no further
-OCR candidate, device run, HOLDOUT access, threshold change, or fixture tuning in this workstream.
+moved to Trash; shared caches and the workspace baseline were not removed. There was no device run,
+HOLDOUT access, threshold change, or fixture tuning in that experiment.
+
+## Current API 24 private-word implementation
+
+After an explicit product decision, LiveShield now requires API 24 and packages stock ONNX Runtime
+Android 1.28.0. The AAR is 45,634,470 bytes (SHA-256
+`f351a0638696f54b35184290dbc001d66daae17281ad0b548d2c70347d53b8a9`) and its ARM64 JNI is
+28,637,280 bytes (SHA-256
+`f826d8efb03adf0a84f10e7ba408f9d4cd11b0a2ccd8d08aeb0f7451fb50cacc`). No OCR package-size
+ceiling remains. Telemetry is disabled before session creation.
+
+The packaged recognizer is the parity-checked 7,843,511-byte English PP-OCRv5 ONNX model, SHA-256
+`70b2450eed39599af6b996c27a2f1a0ef30eeb49f9f66dd3e74f28f652befc89`. OCR runs only while the
+creator has at least one session-only private word. Only exact watchlist matches can create text
+masks; automatic email, phone, card, and OTP classification is excluded. Removing the final word
+clears the text lane's carried state.
+
+Debug/release compilation, Android-test compilation, Checkstyle, lint, exact artifact verification,
+and ARM64 release packaging pass. The unsigned ARM64 release APK is 72,574,160 bytes and declares
+`minSdk=24`. No device inference or accuracy evaluation was performed.
 
 ## Current product boundary
 
 - Supported in scoped DEVELOPMENT evidence: standards-valid QR and configured full-area zones.
-- Unsupported: automatic email, phone, payment-card-like, verification-code, and configured
-  watchlist findings.
+- Unsupported: automatic email, phone, payment-card-like, and verification-code findings.
+- Implemented but unverified: creator-entered session private words.
 - SC-002 is **UNMET** and SC-009 is **UNMET**.
 - Production Priority 2 scheduler/policy wiring remains present, but unsupported OCR findings do
   not become supported merely because the composition path exists.
 
-The workstream is frozen on the PP-OCRv3/Paddle Lite 2.11 unsupported baseline. Reopening OCR would
-require new explicit scope and authority; the failed Android feasibility gate must not be bypassed
-by adding a stock ORT dependency, raising `minSdk`, weakening package limits, or using HOLDOUT.
+The English PP-OCRv5 private-word path is packaged under the explicit API-24/size tradeoff. HOLDOUT
+remains sealed and SC-002/SC-009 remain unmet until separate authorized evidence exists.

@@ -28,7 +28,7 @@ end-to-end fail-private behavior.
 **Purpose**: Create the Java-first Android project, reproducible dependency baseline, and safe test-data workspace.
 
 - [x] T001 Create the Gradle multi-module skeleton for `app/`, `privacy-domain/`, `vision/`, `video-pipeline/`, `transport/`, `benchmark/`, and `test-fixtures/` in `settings.gradle` and each module's `build.gradle`
-- [x] T002 Configure Java 17, compile SDK 37, target SDK 36, minimum SDK 23, dependency repositories, and centralized version constants in `build.gradle` and `gradle.properties`
+- [x] T002 Configure Java 17, compile SDK 37, target SDK 36, minimum SDK 24, dependency repositories, and centralized version constants in `build.gradle` and `gradle.properties`
 - [x] T003 [P] Add Android application manifest with camera/network permissions, no microphone permission, and debug-only test flags in `app/src/main/AndroidManifest.xml` and `app/src/debug/AndroidManifest.xml`
 - [x] T004 [P] Add CameraX 1.6.1, audited offline vision runtimes/models, AndroidX Test, JUnit, libphonenumber, RootEncoder 2.8.0, and benchmark dependencies to the owning module `build.gradle` files
 - [x] T005 [P] Configure Checkstyle, Android Lint, unit-test defaults, and connected-test reporting in `config/checkstyle/checkstyle.xml` and root `build.gradle`

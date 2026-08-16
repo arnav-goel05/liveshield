@@ -12,10 +12,7 @@ import com.liveshield.privacy.host.DefaultHostSelectionController;
 import com.liveshield.privacy.host.HostSelectionController;
 import com.liveshield.privacy.model.CoordinateTransform;
 import com.liveshield.privacy.model.DetectorLane;
-import com.liveshield.privacy.model.DetectorSnapshot;
-import com.liveshield.privacy.model.FrameTimestamp;
 import com.liveshield.privacy.model.NormalizedRect;
-import com.liveshield.privacy.model.TypedFailure;
 import com.liveshield.privacy.policy.DefaultPrivacyPolicyEngine;
 import com.liveshield.privacy.policy.PrivacyPolicyConfiguration;
 import com.liveshield.privacy.policy.PriorityTwoPolicy;
@@ -34,6 +31,7 @@ import com.liveshield.video.output.SanitizedVideoOutput;
 import com.liveshield.video.render.PrivacySurfaceProcessor;
 import com.liveshield.vision.face.OfflineFaceAnalyzer;
 import com.liveshield.vision.pii.OfflineBarcodeAnalyzer;
+import com.liveshield.vision.pii.OfflineTextAnalyzer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -48,6 +46,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Production, local-only composition root for the protected-start graph. */
 public final class SetupSessionFactory {
     private static final long MAX_AGE_NANOS = 100_000_000L;
+    private static final long FRAME_DECISION_VALIDITY_NANOS = 100_000_000L;
 
     private SetupSessionFactory() {
     }
@@ -179,17 +178,27 @@ public final class SetupSessionFactory {
         constructed.add(output);
         OfflineFaceAnalyzer faceAnalyzer = new OfflineFaceAnalyzer(activity);
         constructed.add(faceAnalyzer);
+        OfflineTextAnalyzer textAnalyzer = new OfflineTextAnalyzer(
+                activity,
+                OfflineTextAnalyzer.Configuration.defaults(
+                        activity.sessionPrivacyConfiguration().normalizedWatchlistTerms()));
+        activity.setPrivacyConfigurationListener(() -> textAnalyzer.updateNormalizedWatchlistTerms(
+                activity.sessionPrivacyConfiguration().normalizedWatchlistTerms()));
+        constructed.add(textAnalyzer);
         OfflineBarcodeAnalyzer barcodeAnalyzer = new OfflineBarcodeAnalyzer();
         constructed.add(barcodeAnalyzer);
         PriorityTwoPrivacyPolicyEngine policy = priorityTwoPolicy();
         VisionScheduler scheduler = new VisionScheduler(
-                // OCR/watchlist recognition is formally unsupported after T119 and is excluded
-                // from production authorization. Do not spend the live 100 ms face budget on a
-                // detector whose output cannot authorize regional rendering.
-                VisionScheduler.Configuration.defaults().withEnabledLanes(
-                        Set.of(DetectorLane.FACE, DetectorLane.BARCODE)),
+                VisionScheduler.Configuration.defaults()
+                        // The stock API-24 ONNX recognizer completes in about 1.2--1.5 seconds on
+                        // the reference SM-S921B. Admit its bounded 2.5 second source validity;
+                        // recognition and word-matching thresholds remain unchanged.
+                        .withMaxValidityNanos(3_000_000_000L)
+                        .withEnabledLanes(
+                                Set.of(DetectorLane.FACE, DetectorLane.TEXT,
+                                        DetectorLane.BARCODE)),
                 new VisionAnalyzerLaneAdapter(faceAnalyzer, Runnable::run),
-                SetupSessionFactory::rejectUnsupportedTextLane,
+                new VisionAnalyzerLaneAdapter(textAnalyzer, Runnable::run),
                 new VisionAnalyzerLaneAdapter(barcodeAnalyzer, Runnable::run),
                 snapshot -> {
                     if (snapshot.failure().isPresent()) {
@@ -260,8 +269,10 @@ public final class SetupSessionFactory {
                     renderExecutor.shutdown();
                 },
                 () -> {
+                    activity.setPrivacyConfigurationListener(null);
                     analyzer.close();
                     faceAnalyzer.close();
+                    textAnalyzer.close();
                     barcodeAnalyzer.close();
                     faces.resetSession();
                     analysisExecutor.shutdown();
@@ -279,6 +290,7 @@ public final class SetupSessionFactory {
         AppDiagnostics.info(AppDiagnostics.Event.SESSION_GRAPH_COMPOSED);
         return coordinator;
         } catch (RuntimeException exception) {
+            activity.setPrivacyConfigurationListener(null);
             AppDiagnostics.failure(AppDiagnostics.Event.SESSION_FACTORY_FAILED, exception);
             for (int index = constructed.size() - 1; index >= 0; index--) {
                 closeQuietly(constructed.get(index));
@@ -302,27 +314,15 @@ public final class SetupSessionFactory {
         return Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, name));
     }
 
-    /** Fail-closed guard for a production lane that is intentionally absent and disabled. */
-    private static VisionScheduler.Cancellation rejectUnsupportedTextLane(
-            VisionScheduler.FrameLease frame,
-            VisionScheduler.Completion completion) {
-        FrameTimestamp timestamp = frame.timestamp();
-        completion.complete(DetectorSnapshot.failure(
-                DetectorLane.TEXT,
-                timestamp,
-                new TypedFailure(TypedFailure.Code.ANALYZER_ERROR, timestamp)));
-        return VisionScheduler.Cancellation.NONE;
-    }
-
     private static PriorityTwoPrivacyPolicyEngine priorityTwoPolicy() {
         SensitiveFindingPolicy findings = new SensitiveFindingPolicy(
                 new SensitiveFindingPolicy.Configuration(
-                        // Offline text recognition is an explicitly unsupported boundary after
-                        // the frozen DEVELOPMENT evaluation. Do not let that unavailable lane
-                        // make supported face, barcode, and configured-zone preview unusable.
-                        Set.of(DetectorLane.BARCODE),
-                        1_500_000_000L,
-                        2_000_000_000L,
+                        Set.of(DetectorLane.TEXT, DetectorLane.BARCODE),
+                        // Source timestamps precede the stock on-device OCR result by roughly
+                        // 1.5 seconds. Retain an accepted mask across the next bounded OCR pass
+                        // instead of exposing it between otherwise successful recognitions.
+                        2_500_000_000L,
+                        3_500_000_000L,
                         0.25,
                         256,
                         512,
@@ -337,8 +337,14 @@ public final class SetupSessionFactory {
                         0.25,
                         12,
                         3,
-                        33_333_334L)),
-                new PriorityTwoPolicy(findings));
+                        // Keep the exact frame decision valid through the renderer's bounded
+                        // 100 ms raw-decision deadline. The former one-frame (33 ms) validity
+                        // expired during ordinary capture-to-GL latency and visibly alternated
+                        // regional output with the fail-private shield.
+                        FRAME_DECISION_VALIDITY_NANOS)),
+                new PriorityTwoPolicy(findings),
+                source -> AppDiagnostics.state(
+                        AppDiagnostics.Event.POLICY_DECISION_SOURCE, source));
     }
 
     private static void forwardFailure(

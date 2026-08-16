@@ -34,7 +34,15 @@ import java.util.concurrent.atomic.AtomicReference;
  * analyzer. There is exactly one in-flight request and no internal frame queue.</p>
  */
 public final class OfflineTextAnalyzer implements VisionAnalyzer, AutoCloseable {
-    static final long DEFAULT_FRESHNESS_NANOS = 750_000_000L;
+    /**
+     * Bounds how long a camera-time OCR observation may remain usable.
+     *
+     * <p>The stock API-24 ONNX Runtime English recognizer takes roughly 1.2--1.5 seconds on the
+     * reference SM-S921B. A 2.5 second window admits that completed result plus bounded device
+     * jitter without changing any recognition or watchlist threshold. Older results still fail
+     * private.</p>
+     */
+    static final long DEFAULT_FRESHNESS_NANOS = 2_500_000_000L;
     private final TextRecognitionEngine engine;
     private final OcrPrivacyClassifier classifier;
     private final Configuration configuration;
@@ -86,6 +94,14 @@ public final class OfflineTextAnalyzer implements VisionAnalyzer, AutoCloseable 
                 frame.close();
                 return immediate(failure(timestamp, TypedFailure.Code.ANALYZER_ERROR));
             }
+            if (normalizedWatchlistTerms.get().isEmpty()) {
+                frame.close();
+                return immediate(DetectorSnapshot.success(
+                        DetectorLane.TEXT,
+                        timestamp,
+                        timestamp.plusNanos(configuration.freshnessNanos()),
+                        List.of()));
+            }
             PendingAnalysis request = new PendingAnalysis(frame, timestamp);
             if (!pending.compareAndSet(null, request)) {
                 frame.close();
@@ -118,7 +134,7 @@ public final class OfflineTextAnalyzer implements VisionAnalyzer, AutoCloseable 
                         request.frame, rotationDegrees, request.cancelled);
                 outcome = request.cancelled.get()
                         ? failure(request.timestamp, TypedFailure.Code.ANALYZER_CANCELLED)
-                        : toSnapshot(request.timestamp, recognized, transform);
+                        : toSnapshot(request.timestamp, recognized, transform, rotationDegrees);
             }
         } catch (RuntimeException | LinkageError recognitionFailure) {
             outcome = failure(request.timestamp, request.cancelled.get()
@@ -131,7 +147,8 @@ public final class OfflineTextAnalyzer implements VisionAnalyzer, AutoCloseable 
     private DetectorSnapshot toSnapshot(
             FrameTimestamp timestamp,
             List<RecognizedElement> engineElements,
-            CoordinateTransform transform) {
+            CoordinateTransform transform,
+            int rotationDegrees) {
         if (engineElements.size() > configuration.maximumElements()) {
             throw new IllegalArgumentException("OCR result exceeds element bound");
         }
@@ -154,15 +171,14 @@ public final class OfflineTextAnalyzer implements VisionAnalyzer, AutoCloseable 
             mappedElements.add(new OcrRegionMapper.OcrElement(
                     start,
                     text.length(),
-                    element.polygon(),
+                    toAnalysisBufferOrientation(element.polygon(), rotationDegrees),
                     element.confidence(),
                     element.boundaryCertain()));
         }
 
-        List<OcrRegionMapper.MappedRegion> mapped = classifier.classify(
+        List<OcrRegionMapper.MappedRegion> mapped = classifier.classifyWatchlistOnly(
                 text.toString(),
                 mappedElements,
-                configuration.defaultRegionCode(),
                 normalizedWatchlistTerms.get(),
                 transform,
                 configuration.mappingOptions());
@@ -175,6 +191,21 @@ public final class OfflineTextAnalyzer implements VisionAnalyzer, AutoCloseable 
                 timestamp,
                 timestamp.plusNanos(configuration.freshnessNanos()),
                 protectedRegions);
+    }
+
+    /**
+     * Converts polygons from the upright bitmap used by OCR back into CameraX analysis-buffer
+     * coordinates. The shared sensor-to-buffer transform can only be inverted after this step.
+     */
+    private static List<NormalizedPoint> toAnalysisBufferOrientation(
+            List<NormalizedPoint> uprightPolygon, int rotationDegrees) {
+        return uprightPolygon.stream().map(point -> switch (rotationDegrees) {
+            case 0 -> point;
+            case 90 -> new NormalizedPoint(point.y(), 1.0 - point.x());
+            case 180 -> new NormalizedPoint(1.0 - point.x(), 1.0 - point.y());
+            case 270 -> new NormalizedPoint(1.0 - point.y(), point.x());
+            default -> throw new IllegalArgumentException("Unsupported frame rotation");
+        }).toList();
     }
 
     private static ProtectedRegion toProtectedRegion(OcrRegionMapper.MappedRegion mapped) {

@@ -25,6 +25,7 @@ public final class SessionPrivacyConfiguration
     private List<NormalizedRect> canonicalZones;
     private List<NormalizedRect> activeZones;
     private boolean zonesSafelyTransformed = true;
+    private boolean automaticBarcodeProtectionEnabled = true;
 
     public SessionPrivacyConfiguration(
             Set<String> watchlistTerms, List<NormalizedRect> privacyZones) {
@@ -60,6 +61,15 @@ public final class SessionPrivacyConfiguration
     @Override
     public synchronized boolean zonesSafelyTransformed() {
         return zonesSafelyTransformed;
+    }
+
+    public synchronized void setAutomaticBarcodeProtectionEnabled(boolean enabled) {
+        automaticBarcodeProtectionEnabled = enabled;
+    }
+
+    @Override
+    public synchronized boolean automaticBarcodeProtectionEnabled() {
+        return automaticBarcodeProtectionEnabled;
     }
 
     /**
@@ -105,7 +115,11 @@ public final class SessionPrivacyConfiguration
 
     /** Returns an immutable policy view detached from later configuration mutations. */
     public synchronized SessionPrivacyConfigurationView snapshot() {
-        return new Snapshot(normalizedTerms, activeZones, zonesSafelyTransformed);
+        return new Snapshot(
+                normalizedTerms,
+                activeZones,
+                zonesSafelyTransformed,
+                automaticBarcodeProtectionEnabled);
     }
 
     /** Clears all session-local terms, zones, and geometry state. */
@@ -114,6 +128,7 @@ public final class SessionPrivacyConfiguration
         canonicalZones = List.of();
         activeZones = List.of();
         zonesSafelyTransformed = true;
+        automaticBarcodeProtectionEnabled = true;
     }
 
     @Override
@@ -203,7 +218,9 @@ public final class SessionPrivacyConfiguration
     private record Snapshot(
             Set<String> normalizedWatchlistTerms,
             List<NormalizedRect> activePrivacyZones,
-            boolean zonesSafelyTransformed) implements SessionPrivacyConfigurationView {
+            boolean zonesSafelyTransformed,
+            boolean automaticBarcodeProtectionEnabled)
+            implements SessionPrivacyConfigurationView {
         private Snapshot {
             normalizedWatchlistTerms = Set.copyOf(normalizedWatchlistTerms);
             activePrivacyZones = List.copyOf(activePrivacyZones);

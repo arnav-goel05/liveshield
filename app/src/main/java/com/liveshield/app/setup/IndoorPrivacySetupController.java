@@ -21,6 +21,7 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
     private List<NormalizedRect> configuredZones = List.of();
     private List<NormalizedRect> activeZones = List.of();
     private boolean zonesSafelyTransformed = true;
+    private boolean automaticBarcodeProtectionEnabled = true;
     private long zoneRevision;
 
     /** Adds one exact session term after Unicode NFKC, root-locale case folding, and whitespace. */
@@ -87,6 +88,15 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
         return configuredZones;
     }
 
+    /** Enables or disables automatic QR/barcode masking for this in-memory session. */
+    public synchronized void setAutomaticBarcodeProtectionEnabled(boolean enabled) {
+        automaticBarcodeProtectionEnabled = enabled;
+    }
+
+    public synchronized boolean automaticBarcodeProtectionEnabled() {
+        return automaticBarcodeProtectionEnabled;
+    }
+
     /** Marks camera/crop/rotation geometry unsafe; policy must shield until a safe update arrives. */
     public synchronized void markZoneTransformUnsafe() {
         if (!configuredZones.isEmpty()) {
@@ -131,7 +141,11 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
 
     /** Returns an immutable, provenance-safe policy view detached from future setup mutations. */
     public synchronized Configuration snapshot() {
-        return new Configuration(normalizedTerms, activeZones, zonesSafelyTransformed);
+        return new Configuration(
+                normalizedTerms,
+                activeZones,
+                zonesSafelyTransformed,
+                automaticBarcodeProtectionEnabled);
     }
 
     /** Clears every session-local term, zone, and unsafe-transform latch. */
@@ -140,6 +154,7 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
         configuredZones = List.of();
         activeZones = List.of();
         zonesSafelyTransformed = true;
+        automaticBarcodeProtectionEnabled = true;
         zoneRevision++;
     }
 
@@ -237,14 +252,17 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
         private final Set<String> normalizedTerms;
         private final List<NormalizedRect> activeZones;
         private final boolean zonesSafelyTransformed;
+        private final boolean automaticBarcodeProtectionEnabled;
 
         private Configuration(
                 Set<String> normalizedTerms,
                 List<NormalizedRect> activeZones,
-                boolean zonesSafelyTransformed) {
+                boolean zonesSafelyTransformed,
+                boolean automaticBarcodeProtectionEnabled) {
             this.normalizedTerms = Set.copyOf(normalizedTerms);
             this.activeZones = List.copyOf(activeZones);
             this.zonesSafelyTransformed = zonesSafelyTransformed;
+            this.automaticBarcodeProtectionEnabled = automaticBarcodeProtectionEnabled;
         }
 
         @Override
@@ -260,6 +278,11 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
         @Override
         public boolean zonesSafelyTransformed() {
             return zonesSafelyTransformed;
+        }
+
+        @Override
+        public boolean automaticBarcodeProtectionEnabled() {
+            return automaticBarcodeProtectionEnabled;
         }
 
         @Override

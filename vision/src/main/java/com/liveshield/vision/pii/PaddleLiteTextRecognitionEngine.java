@@ -1,5 +1,11 @@
 package com.liveshield.vision.pii;
 
+import ai.onnxruntime.OnnxTensor;
+import ai.onnxruntime.OnnxValue;
+import ai.onnxruntime.OrtEnvironment;
+import ai.onnxruntime.OrtException;
+import ai.onnxruntime.OrtSession;
+import ai.onnxruntime.TensorInfo;
 import android.content.Context;
 import android.graphics.Bitmap;
 import com.baidu.paddle.lite.MobileConfig;
@@ -8,11 +14,13 @@ import com.baidu.paddle.lite.PowerMode;
 import com.baidu.paddle.lite.Tensor;
 import com.liveshield.privacy.model.NormalizedPoint;
 import java.io.File;
+import java.nio.FloatBuffer;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -28,13 +36,13 @@ import org.opencv.core.RotatedRect;
 import org.opencv.core.Size;
 import org.opencv.imgproc.Imgproc;
 
-/** Fully offline PP-OCRv3 detection and recognition, with no egress API. */
+/** Offline PP-OCRv3 detection plus English PP-OCRv5 recognition, with no egress API. */
 final class PaddleLiteTextRecognitionEngine
         implements OfflineTextAnalyzer.TextRecognitionEngine {
     private static final String EXPECTED_RUNTIME_VERSION = "v2.11";
     static final int RECOGNIZER_WIDTH = 320;
     static final int RECOGNIZER_HEIGHT = 48;
-    static final int RECOGNIZER_DICTIONARY_SIZE = 96;
+    static final int RECOGNIZER_DICTIONARY_SIZE = 437;
     static final int RECOGNIZER_CLASSES = RECOGNIZER_DICTIONARY_SIZE + 1;
     private static final int MAXIMUM_DETECTOR_EDGE = 640;
     private static final int MAXIMUM_ELEMENTS = 256;
@@ -193,19 +201,34 @@ final class PaddleLiteTextRecognitionEngine
                             RECOGNIZER_HEIGHT * crop.cols() / (double) crop.rows())));
             Imgproc.resize(crop, resized, new Size(resizedWidth, RECOGNIZER_HEIGHT));
             float[] chw = recognizerNormalizedBgrChw(resized);
-            Tensor input = required(predictors.recognizer().getInput(0));
-            require(input.resize(new long[]{
-                    1, 3, RECOGNIZER_HEIGHT, RECOGNIZER_WIDTH}));
-            require(input.setData(chw));
-            if (!predictors.recognizer().run()) {
-                throw new IllegalStateException("Paddle recognizer inference failed");
-            }
-            Tensor output = required(predictors.recognizer().getOutput(0));
-            return decodePaddleCtc(
-                    output.getFloatData(), output.shape(), predictors.characters());
+            return recognizeWithOnnx(chw);
         } finally {
             resized.release();
             crop.release();
+        }
+    }
+
+    private Recognition recognizeWithOnnx(float[] inputValues) {
+        long[] inputShape = {1, 3, RECOGNIZER_HEIGHT, RECOGNIZER_WIDTH};
+        try (OnnxTensor input = OnnxTensor.createTensor(
+                    predictors.environment(), FloatBuffer.wrap(inputValues), inputShape);
+                OrtSession.Result output = predictors.recognizer().run(Map.of("x", input))) {
+            OnnxValue value = output.get("fetch_name_0")
+                    .orElseThrow(() -> new IllegalStateException(
+                            "English PP-OCRv5 output is missing"));
+            if (!(value instanceof OnnxTensor tensor)) {
+                throw new IllegalStateException("English PP-OCRv5 output is not a tensor");
+            }
+            TensorInfo info = tensor.getInfo();
+            FloatBuffer values = tensor.getFloatBuffer();
+            if (values == null) {
+                throw new IllegalStateException("English PP-OCRv5 output is not float data");
+            }
+            float[] flattened = new float[values.remaining()];
+            values.get(flattened);
+            return decodePaddleCtc(flattened, info.getShape(), predictors.characters());
+        } catch (OrtException exception) {
+            throw new IllegalStateException("English PP-OCRv5 inference failed", exception);
         }
     }
 
@@ -218,7 +241,7 @@ final class PaddleLiteTextRecognitionEngine
                 || shape.length != 3 || shape[0] != 1 || shape[1] <= 0
                 || shape[2] != RECOGNIZER_CLASSES
                 || output.length != shape[1] * RECOGNIZER_CLASSES) {
-            throw new IllegalArgumentException("Unexpected PP-OCRv3 recognition output shape");
+            throw new IllegalArgumentException("Unexpected English PP-OCRv5 output shape");
         }
         int steps = checkedDimension(shape[1]);
         StringBuilder text = new StringBuilder();
@@ -350,11 +373,32 @@ final class PaddleLiteTextRecognitionEngine
             }
             File detector = PaddleOcrAssets.verifiedPrivateCopy(context, PaddleOcrAssets.DETECTOR);
             File recognizer = PaddleOcrAssets.verifiedPrivateCopy(
-                    context, PaddleOcrAssets.RECOGNIZER);
-            predictors = new Predictors(
-                    createPredictor(detector, PaddleOcrAssets.DETECTOR.optimizerVersion()),
-                    createPredictor(recognizer, PaddleOcrAssets.RECOGNIZER.optimizerVersion()),
-                    PaddleOcrAssets.verifiedDictionary(context));
+                    context, PaddleOcrAssets.RECOGNIZER_ONNX);
+            ReleasablePredictor detectorPredictor = createPredictor(
+                    detector, PaddleOcrAssets.DETECTOR.optimizerVersion());
+            try {
+                OrtEnvironment environment = OrtEnvironment.getEnvironment("liveshield-ocr");
+                environment.setTelemetry(false);
+                OrtSession.SessionOptions options = new OrtSession.SessionOptions();
+                OrtSession recognizerSession;
+                try {
+                    options.setIntraOpNumThreads(2);
+                    options.setInterOpNumThreads(1);
+                    recognizerSession = environment.createSession(
+                            recognizer.getAbsolutePath(), options);
+                } finally {
+                    options.close();
+                }
+                predictors = new Predictors(
+                        detectorPredictor,
+                        environment,
+                        recognizerSession,
+                        PaddleOcrAssets.verifiedDictionary(context));
+            } catch (OrtException exception) {
+                detectorPredictor.release();
+                throw new IllegalStateException(
+                        "Unable to initialize English PP-OCRv5", exception);
+            }
         }
     }
 
@@ -384,7 +428,11 @@ final class PaddleLiteTextRecognitionEngine
             predictors = null;
             if (active != null) {
                 active.detector().release();
-                active.recognizer().release();
+                try {
+                    active.recognizer().close();
+                } catch (OrtException ignored) {
+                    // Session ownership is ending; no recognized payload or raw frame survives.
+                }
             }
         }
     }
@@ -422,13 +470,13 @@ final class PaddleLiteTextRecognitionEngine
     }
 
     /**
-     * Converts an aspect-preserving 48-pixel-high BGR crop into a zero-padded v3 tensor.
+     * Converts an aspect-preserving 48-pixel-high BGR crop into a zero-padded v5 tensor.
      */
     static float[] recognizerNormalizedBgrChw(byte[] bgr, int width, int height) {
         Objects.requireNonNull(bgr, "bgr");
         if (height != RECOGNIZER_HEIGHT || width <= 0 || width > RECOGNIZER_WIDTH
                 || bgr.length != Math.multiplyExact(Math.multiplyExact(width, height), 3)) {
-            throw new IllegalArgumentException("Invalid PP-OCRv3 recognizer BGR crop");
+            throw new IllegalArgumentException("Invalid English PP-OCRv5 recognizer BGR crop");
         }
         int plane = RECOGNIZER_HEIGHT * RECOGNIZER_WIDTH;
         float[] output = new float[plane * 3];
@@ -649,7 +697,8 @@ final class PaddleLiteTextRecognitionEngine
 
     private record Predictors(
             ReleasablePredictor detector,
-            ReleasablePredictor recognizer,
+            OrtEnvironment environment,
+            OrtSession recognizer,
             List<String> characters) {
     }
 

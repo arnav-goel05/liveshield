@@ -141,6 +141,113 @@
                 android:orientation="horizontal">
 
                 <View
+                    android:id="@+id/watchlist_indicator"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:background="@drawable/ls_status_circle" />
+
+                <ImageView
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:layout_marginStart="14dp"
+                    android:contentDescription="@null"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_ls_lock"
+                    android:tint="@color/ls_teal" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="14dp"
+                    android:layout_weight="1"
+                    android:text="@string/setup_private_words"
+                    android:textColor="@color/ls_ink"
+                    android:textSize="16sp" />
+
+                <Button
+                    android:id="@+id/toggle_watchlist_details"
+                    style="@style/LiveShieldTextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:minWidth="0dp"
+                    android:text="@string/add_private_words" />
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:contentDescription="@null"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_ls_chevron_right"
+                    android:tint="@color/ls_ink" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/watchlist_details"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingBottom="12dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/private_words_explanation"
+                    android:textColor="@color/ls_slate"
+                    android:textSize="14sp" />
+
+                <EditText
+                    android:id="@+id/watchlist_term_input"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:autofillHints=""
+                    android:freezesText="false"
+                    android:hint="@string/private_word_hint"
+                    android:importantForAutofill="noExcludeDescendants"
+                    android:inputType="textNoSuggestions"
+                    android:maxLength="64"
+                    android:saveEnabled="false"
+                    android:textColor="@color/ls_ink"
+                    android:textColorHint="@color/ls_slate" />
+
+                <Button
+                    android:id="@+id/add_watchlist_term"
+                    style="@style/LiveShieldPrimaryButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/add_private_word" />
+
+                <TextView
+                    android:id="@+id/watchlist_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:accessibilityLiveRegion="polite"
+                    android:text="@string/private_words_empty"
+                    android:textColor="@color/ls_slate"
+                    android:textSize="13sp" />
+
+                <LinearLayout
+                    android:id="@+id/watchlist_terms_container"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/ls_divider" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="68dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
                     android:id="@+id/privacy_zone_indicator"
                     android:layout_width="28dp"
                     android:layout_height="28dp"
@@ -179,6 +286,30 @@
                     android:importantForAccessibility="no"
                     android:src="@drawable/ic_ls_chevron_right"
                     android:tint="@color/ls_ink" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/ls_divider" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="68dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <CheckBox
+                    android:id="@+id/cover_qr_codes_toggle"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:buttonTint="@color/ls_teal"
+                    android:checked="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="48dp"
+                    android:text="@string/cover_qr_codes"
+                    android:textColor="@color/ls_ink"
+                    android:textSize="16sp" />
             </LinearLayout>
 
             <View

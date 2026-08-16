@@ -12,6 +12,7 @@ import com.liveshield.privacy.model.DetectorLane;
 import com.liveshield.privacy.model.DetectorSnapshot;
 import com.liveshield.privacy.model.FrameTimestamp;
 import com.liveshield.privacy.model.NormalizedPoint;
+import com.liveshield.privacy.model.NormalizedRect;
 import com.liveshield.privacy.model.TypedFailure;
 import java.util.List;
 import java.util.Set;
@@ -49,6 +50,34 @@ public final class OfflineTextAnalyzerTest {
         assertEquals(1, result.findings().size());
         assertEquals(1, frame.closeCount.get());
         assertFalse(result.toString().contains("user@example.com"));
+        analyzer.close();
+        assertTrue(executor.awaitTermination(2, TimeUnit.SECONDS));
+    }
+
+    @Test
+    public void uprightOcrPolygonReturnsToAnalysisOrientationBeforeSensorMapping()
+            throws Exception {
+        FakeEngine engine = new FakeEngine(List.of(new OfflineTextAnalyzer.RecognizedElement(
+                "user@example.com",
+                rectangle(0.1, 0.2, 0.3, 0.4),
+                0.92,
+                true)));
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        OfflineTextAnalyzer analyzer = analyzer(engine, executor);
+
+        DetectorSnapshot result = analyzer.analyze(
+                new FakeFrame(),
+                FrameTimestamp.ofNanos(100),
+                90,
+                CoordinateTransform.identity()).get(2, TimeUnit.SECONDS);
+
+        NormalizedRect bounds = result.findings().get(0).bounds().get(0);
+        // Clockwise-upright (x,y) maps back to analysis-buffer (y,1-x), then reliable
+        // watchlist padding adds 0.01 on each side.
+        assertEquals(0.19, bounds.left(), 0.000_001);
+        assertEquals(0.69, bounds.top(), 0.000_001);
+        assertEquals(0.41, bounds.right(), 0.000_001);
+        assertEquals(0.91, bounds.bottom(), 0.000_001);
         analyzer.close();
         assertTrue(executor.awaitTermination(2, TimeUnit.SECONDS));
     }
@@ -217,7 +246,11 @@ public final class OfflineTextAnalyzerTest {
 
         PaddleLiteTextRecognitionEngine.Recognition result =
                 PaddleLiteTextRecognitionEngine.decodePaddleCtc(
-                        output, new long[]{1, 4, 97}, dictionary);
+                        output,
+                        new long[]{
+                            1, 4, PaddleLiteTextRecognitionEngine.RECOGNIZER_CLASSES
+                        },
+                        dictionary);
 
         assertEquals("ab", result.text());
         assertTrue(result.confidence() > 0.99);
@@ -337,7 +370,7 @@ public final class OfflineTextAnalyzerTest {
     @Test
     public void auditedRuntimeCompatibilityMatrixRejectsUnknownModelOptimizers() {
         assertTrue(PaddleOcrAssets.runtimeSupportsOptimizer("v2.11", "v2.10"));
-        assertTrue(PaddleOcrAssets.runtimeSupportsOptimizer("v2.11", "v2.11-rc"));
+        assertFalse(PaddleOcrAssets.runtimeSupportsOptimizer("v2.11", "v2.11-rc"));
         assertFalse(PaddleOcrAssets.runtimeSupportsOptimizer("v2.14-rc", "v2.10"));
         assertFalse(PaddleOcrAssets.runtimeSupportsOptimizer("v2.11", "v2.12"));
     }
@@ -345,8 +378,8 @@ public final class OfflineTextAnalyzerTest {
     @Test
     public void paddleDictionaryAndOutputDimensionCoverStructuredPunctuation() {
         List<String> dictionary = paddleDictionary();
-        assertEquals(96, dictionary.size());
-        assertEquals(97, PaddleLiteTextRecognitionEngine.RECOGNIZER_CLASSES);
+        assertEquals(437, dictionary.size());
+        assertEquals(438, PaddleLiteTextRecognitionEngine.RECOGNIZER_CLASSES);
         for (char value : "@._+-/:()".toCharArray()) {
             assertTrue(dictionary.contains(String.valueOf(value)));
         }
@@ -395,7 +428,9 @@ public final class OfflineTextAnalyzerTest {
         return new OfflineTextAnalyzer(
                 engine,
                 new OcrPrivacyClassifier(),
-                OfflineTextAnalyzer.Configuration.defaults(Set.of()),
+                // Keep the fake engine active. An empty session watchlist intentionally skips
+                // OCR in production and therefore cannot exercise analyzer lifecycle tests.
+                OfflineTextAnalyzer.Configuration.defaults(Set.of("user@example.com")),
                 executor);
     }
 
@@ -416,7 +451,9 @@ public final class OfflineTextAnalyzerTest {
         for (int index = 0; index < values.length(); index++) {
             result.add(values.substring(index, index + 1));
         }
-        result.add(" ");
+        while (result.size() < PaddleLiteTextRecognitionEngine.RECOGNIZER_DICTIONARY_SIZE) {
+            result.add(String.valueOf((char) (0x0100 + result.size())));
+        }
         return List.copyOf(result);
     }
 

@@ -11,6 +11,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
+import androidx.annotation.OptIn;
 import androidx.camera.view.PreviewView;
 import androidx.camera.view.TransformExperimental;
 import androidx.camera.view.transform.OutputTransform;
@@ -19,7 +20,7 @@ import com.liveshield.privacy.model.NormalizedRect;
 import java.util.List;
 
 /** Private, pixel-free overlay for drawing fixed normalized protection zones. */
-@TransformExperimental
+@OptIn(markerClass = TransformExperimental.class)
 public final class PrivacyZoneEditorView extends View {
     private static final float MINIMUM_TOUCH_SPAN = 0.01f;
     private final Paint zonePaint = new Paint(Paint.ANTI_ALIAS_FLAG);

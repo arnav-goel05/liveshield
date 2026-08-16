@@ -131,6 +131,7 @@ public final class AppDiagnostics {
         ANALYSIS_RESOLUTION,
         ANALYSIS_SENSOR_TO_BUFFER,
         DECISION_BASIS,
+        POLICY_DECISION_SOURCE,
         THERMAL_STATE,
         SCENE_CHANGED,
         SESSION_FACTORY_CREATED,

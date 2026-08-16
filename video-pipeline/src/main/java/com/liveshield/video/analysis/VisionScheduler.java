@@ -339,6 +339,12 @@ public final class VisionScheduler implements AutoCloseable {
                     faceDeadlineNanos, maxValidityNanos, lanes);
         }
 
+        public Configuration withMaxValidityNanos(long validityNanos) {
+            return new Configuration(faceIntervalNanos, textIntervalNanos, barcodeIntervalNanos,
+                    degradedTextIntervalNanos, degradedBarcodeIntervalNanos,
+                    faceDeadlineNanos, validityNanos, enabledLanes);
+        }
+
         private long intervalNanos(
                 DetectorLane lane, SessionHealth.ThermalState thermalState) {
             return switch (lane) {

@@ -11,4 +11,9 @@ public interface SessionPrivacyConfigurationView {
     List<NormalizedRect> activePrivacyZones();
 
     boolean zonesSafelyTransformed();
+
+    /** Whether automatic QR and barcode findings should be covered for this session. */
+    default boolean automaticBarcodeProtectionEnabled() {
+        return true;
+    }
 }

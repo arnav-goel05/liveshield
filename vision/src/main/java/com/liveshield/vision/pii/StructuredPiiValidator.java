@@ -58,6 +58,24 @@ public final class StructuredPiiValidator {
         return List.copyOf(ordered);
     }
 
+    /** Matches only creator-entered session terms; automatic PII categories remain disabled. */
+    public List<Match> validateWatchlistOnly(
+            String recognizedText, Set<String> normalizedWatchlistTerms) {
+        Objects.requireNonNull(recognizedText, "recognizedText");
+        Objects.requireNonNull(normalizedWatchlistTerms, "normalizedWatchlistTerms");
+        requireCodePointBound(recognizedText, 16_384, "Recognized text");
+        if (normalizedWatchlistTerms.size() > 32) {
+            throw new IllegalArgumentException("At most 32 watchlist terms are supported");
+        }
+        NormalizedText normalized = NormalizedText.from(recognizedText);
+        LinkedHashSet<Match> matches = new LinkedHashSet<>();
+        addWatchlistMatches(normalized, normalizedWatchlistTerms, matches);
+        ArrayList<Match> ordered = new ArrayList<>(matches);
+        ordered.sort(Comparator.comparingInt(Match::startOffset)
+                .thenComparingInt(Match::endOffset));
+        return List.copyOf(ordered);
+    }
+
     private static void addEmailMatches(NormalizedText text, Set<Match> output) {
         Pattern pattern = Pattern.compile(
                 "(?<![\\p{L}\\p{N}._%+\\-])"

@@ -37,33 +37,32 @@ gate, not performance evidence.
 
 ## T119 terminal investigation boundary
 
-### T119 host path
+### T119 host and current package path
 
-The terminal host investigation converted the English v5 model to ONNX and passed host-side
-conversion/parity checks. This is model-conversion feasibility evidence only. The attempted custom
-API 23 ARM64 ONNX Runtime build stopped at the missing `pkg-config` prerequisite, before native
-compilation or AAR packaging. Consequently there is no Android runtime artifact, runtime gate,
-DEVELOPMENT evaluation, decoded-output evaluation, or HOLDOUT evaluation for that candidate.
+The host investigation converted the English v5 model to ONNX and passed host-side conversion and
+parity checks. The attempted custom API 23 runtime failed. An explicit later product decision raised
+`minSdk` to 24, removed the OCR size ceiling, and packaged stock ONNX Runtime 1.28.0. Compilation,
+lint, artifact verification, and ARM64 release packaging pass. Device inference, DEVELOPMENT
+accuracy, decoded-output evaluation, and HOLDOUT evaluation have not run for this implementation.
 
 The frozen production/evaluation boundary remains the last complete v3 result recorded by
 [T119 OCR DEVELOPMENT](../../docs/verification/t119-ocr-development.md):
 
 - Noto v2 DEVELOPMENT: QR 8/8 and configured zones 32/32;
-- automatic text 0/32 and configured watchlists 0/32, therefore unsupported;
+- automatic text stays disabled; the new private-word path is implemented but unverified;
 - failed PP-OCRv5 and CRNN candidates, and the host-only v5 ONNX candidate, have no Android
   accuracy result;
 - HOLDOUT remains sealed; and
 - SC-002 and SC-009 remain unmet.
 
-No more OCR device work is authorized in the current scope. T119 remains unchecked and explicitly
-blocked because its success criterion is unsupported; host parity cannot substitute for
-source/package/runtime, 104/104 DEVELOPMENT, decoded-output, or one-shot HOLDOUT evidence.
+T119 remains unchecked because source/package completion cannot substitute for device behavior,
+104/104 DEVELOPMENT, decoded-output, or one-shot HOLDOUT evidence.
 
 ## Sole blocked task
 
 | Tasks | Owner/boundary | Why still open |
 |---|---|---|
-| T119 | BLOCKED — frozen unsupported success criterion | Automatic text and watchlist results are 0/32 each; host v5 conversion/parity passed, but the API 23 ARM64 runtime build stopped before compilation/AAR and no further OCR/HOLDOUT work is authorized |
+| T119 | BLOCKED — device/accuracy evidence intentionally deferred | English v5 private-word source/package wiring passes at API 24, but no device or accuracy evidence exists and HOLDOUT remains sealed |
 
 The repository-safe deletion audit has a zero consented-record denominator; it does not imply an
 external encrypted store was inspected. See the

@@ -11,17 +11,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /** Production policy composition for face continuity plus Priority 2 findings and fixed zones. */
 public final class PriorityTwoPrivacyPolicyEngine implements PrivacyPolicyEngine {
     private final DefaultPrivacyPolicyEngine facePolicy;
     private final PriorityTwoPolicy priorityTwoPolicy;
+    private final Consumer<DecisionSource> decisionObserver;
 
     public PriorityTwoPrivacyPolicyEngine(
             DefaultPrivacyPolicyEngine facePolicy,
             PriorityTwoPolicy priorityTwoPolicy) {
+        this(facePolicy, priorityTwoPolicy, ignored -> { });
+    }
+
+    public PriorityTwoPrivacyPolicyEngine(
+            DefaultPrivacyPolicyEngine facePolicy,
+            PriorityTwoPolicy priorityTwoPolicy,
+            Consumer<DecisionSource> decisionObserver) {
         this.facePolicy = Objects.requireNonNull(facePolicy, "facePolicy");
         this.priorityTwoPolicy = Objects.requireNonNull(priorityTwoPolicy, "priorityTwoPolicy");
+        this.decisionObserver = Objects.requireNonNull(decisionObserver, "decisionObserver");
     }
 
     @Override
@@ -38,6 +48,7 @@ public final class PriorityTwoPrivacyPolicyEngine implements PrivacyPolicyEngine
                 frameTimestamp, faceSnapshots, activeTracks, EMPTY_CONFIGURATION, health);
         if (faceDecision.status() == FramePrivacyDecision.Status.FULL_SHIELD) {
             priorityTwoPolicy.reset();
+            decisionObserver.accept(DecisionSource.FACE_SHIELD);
             return faceDecision;
         }
         PriorityTwoPolicy.Result priorityTwo = priorityTwoPolicy.evaluate(
@@ -46,9 +57,11 @@ public final class PriorityTwoPrivacyPolicyEngine implements PrivacyPolicyEngine
                 configuration,
                 health.sceneState() == SessionHealth.SceneState.CHANGED);
         if (priorityTwo.basis() == SensitiveFindingPolicy.Basis.SHIELD_REQUIRED) {
+            decisionObserver.accept(DecisionSource.PRIORITY_TWO_SHIELD);
             return FramePrivacyDecision.fullShield(
                     frameTimestamp, FramePrivacyDecision.Basis.ERROR);
         }
+        decisionObserver.accept(DecisionSource.REGIONAL);
         ArrayList<ProtectedRegion> combined = new ArrayList<>(faceDecision.regions());
         combined.addAll(priorityTwo.regions());
         return FramePrivacyDecision.regionalSafe(
@@ -95,4 +108,11 @@ public final class PriorityTwoPrivacyPolicyEngine implements PrivacyPolicyEngine
                     return true;
                 }
             };
+
+    /** Payload-free branch marker for debug diagnostics and deterministic policy tests. */
+    public enum DecisionSource {
+        FACE_SHIELD,
+        PRIORITY_TWO_SHIELD,
+        REGIONAL
+    }
 }

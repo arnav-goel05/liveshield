@@ -9,7 +9,10 @@ import android.view.ViewGroup;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.fragment.app.FragmentActivity;
 import com.liveshield.app.BuildConfig;
@@ -72,10 +75,16 @@ public final class SetupActivity extends FragmentActivity
     private boolean cameraPermissionRequestIssued;
     private CameraPermissionPort cameraPermissionPort = SYSTEM_CAMERA_PERMISSION;
     private StreamDestination streamDestination;
+    private EditText watchlistInput;
+    private LinearLayout watchlistDetails;
+    private LinearLayout watchlistTermsContainer;
+    private TextView watchlistStatus;
+    private View watchlistIndicator;
     private PrivacyZoneEditorView zoneEditor;
     private View privacyZoneIndicator;
     private boolean cameraTransformValidated;
     private FrameTransform privacyZoneTransform;
+    private Runnable privacyConfigurationListener = () -> { };
     private final IndoorPrivacySetupController indoorPrivacySetup =
             new IndoorPrivacySetupController();
 
@@ -305,6 +314,7 @@ public final class SetupActivity extends FragmentActivity
     @Override
     protected void onDestroy() {
         listener = SetupUiListener.NO_OP;
+        privacyConfigurationListener = () -> { };
         if (pendingCreation != null) {
             pendingCreation.cancel();
             pendingCreation = null;
@@ -325,6 +335,11 @@ public final class SetupActivity extends FragmentActivity
     /** Immutable session-only policy configuration used by the production analysis graph. */
     public SessionPrivacyConfigurationView sessionPrivacyConfiguration() {
         return indoorPrivacySetup.snapshot();
+    }
+
+    /** Signals configuration changes without exposing private words through the callback. */
+    public void setPrivacyConfigurationListener(Runnable newListener) {
+        privacyConfigurationListener = newListener == null ? () -> { } : newListener;
     }
 
     /** Suspends configured zones while the selected camera's output geometry is unresolved. */
@@ -516,12 +531,89 @@ public final class SetupActivity extends FragmentActivity
     }
 
     private void bindIndoorPrivacyControls() {
+        watchlistInput = findViewById(R.id.watchlist_term_input);
+        watchlistDetails = findViewById(R.id.watchlist_details);
+        watchlistTermsContainer = findViewById(R.id.watchlist_terms_container);
+        watchlistStatus = findViewById(R.id.watchlist_status);
+        watchlistIndicator = findViewById(R.id.watchlist_indicator);
+        findViewById(R.id.toggle_watchlist_details).setOnClickListener(ignored -> {
+            boolean show = watchlistDetails.getVisibility() != View.VISIBLE;
+            watchlistDetails.setVisibility(show ? View.VISIBLE : View.GONE);
+            if (show) {
+                watchlistInput.requestFocus();
+            }
+        });
+        findViewById(R.id.add_watchlist_term).setOnClickListener(
+                ignored -> addWatchlistTerm());
         zoneEditor = findViewById(R.id.privacy_zone_editor_overlay);
         privacyZoneIndicator = findViewById(R.id.privacy_zone_indicator);
         findViewById(R.id.toggle_zone_drawing).setOnClickListener(this::toggleZoneDrawing);
         zoneEditor.setZoneDrawListener(this::addDrawnZone);
         zoneEditor.setZoneRemoveListener(this::removeZone);
+        CheckBox barcodeProtection = findViewById(R.id.cover_qr_codes_toggle);
+        barcodeProtection.setChecked(indoorPrivacySetup.automaticBarcodeProtectionEnabled());
+        barcodeProtection.setOnCheckedChangeListener((ignored, enabled) ->
+                indoorPrivacySetup.setAutomaticBarcodeProtectionEnabled(enabled));
+        renderWatchlist();
         renderZoneEditor();
+    }
+
+    private void addWatchlistTerm() {
+        try {
+            boolean added = indoorPrivacySetup.addWatchlistTerm(
+                    watchlistInput.getText().toString());
+            watchlistInput.getText().clear();
+            watchlistStatus.setText(added
+                    ? R.string.private_words_updated
+                    : R.string.private_word_duplicate);
+            privacyConfigurationListener.run();
+            renderWatchlistRows();
+            renderWatchlistIndicator();
+        } catch (IllegalArgumentException exception) {
+            watchlistStatus.setText(R.string.private_word_invalid);
+        } catch (IllegalStateException exception) {
+            watchlistStatus.setText(R.string.private_word_limit);
+        }
+    }
+
+    private void renderWatchlist() {
+        renderWatchlistRows();
+        watchlistStatus.setText(indoorPrivacySetup.snapshot().normalizedWatchlistTerms().isEmpty()
+                ? R.string.private_words_empty : R.string.private_words_updated);
+        renderWatchlistIndicator();
+    }
+
+    private void renderWatchlistIndicator() {
+        boolean configured = !indoorPrivacySetup.snapshot().normalizedWatchlistTerms().isEmpty();
+        watchlistIndicator.setBackgroundResource(configured
+                ? R.drawable.ls_status_circle_selected : R.drawable.ls_status_circle);
+    }
+
+    private void renderWatchlistRows() {
+        watchlistTermsContainer.removeAllViews();
+        int itemNumber = 0;
+        for (String term : indoorPrivacySetup.snapshot().normalizedWatchlistTerms()) {
+            int position = ++itemNumber;
+            LinearLayout row = new LinearLayout(this);
+            row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            TextView label = new TextView(this);
+            label.setText(term);
+            label.setTextColor(getColor(R.color.ls_ink));
+            label.setTextSize(15.0F);
+            row.addView(label, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0F));
+            Button remove = new Button(this);
+            remove.setText(R.string.remove_private_word);
+            remove.setContentDescription(getString(R.string.remove_private_word_number, position));
+            remove.setOnClickListener(ignored -> {
+                indoorPrivacySetup.removeWatchlistTerm(term);
+                privacyConfigurationListener.run();
+                renderWatchlist();
+            });
+            row.addView(remove);
+            watchlistTermsContainer.addView(row);
+        }
     }
 
     private void toggleZoneDrawing(View buttonView) {
@@ -688,4 +780,5 @@ public final class SetupActivity extends FragmentActivity
 
         void request(SetupActivity activity, int requestCode);
     }
+
 }

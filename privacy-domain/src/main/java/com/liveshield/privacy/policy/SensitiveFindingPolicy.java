@@ -20,6 +20,8 @@ import java.util.Set;
 public final class SensitiveFindingPolicy {
     private final Configuration configuration;
     private final Map<DetectorLane, LaneState> lanes = new EnumMap<>(DetectorLane.class);
+    private final Map<DetectorLane, FrameTimestamp> consumedSnapshots =
+            new EnumMap<>(DetectorLane.class);
 
     public SensitiveFindingPolicy(Configuration configuration) {
         this.configuration = Objects.requireNonNull(configuration, "configuration");
@@ -32,6 +34,30 @@ public final class SensitiveFindingPolicy {
             FrameTimestamp frameTimestamp,
             List<DetectorSnapshot> detectorSnapshots,
             boolean sceneChanged) {
+        return evaluate(frameTimestamp, detectorSnapshots, sceneChanged, true);
+    }
+
+    /** Evaluates enabled lanes and immediately forgets barcode carry when protection is off. */
+    public synchronized Result evaluate(
+            FrameTimestamp frameTimestamp,
+            List<DetectorSnapshot> detectorSnapshots,
+            boolean sceneChanged,
+            boolean automaticBarcodeProtectionEnabled) {
+        return evaluate(
+                frameTimestamp,
+                detectorSnapshots,
+                sceneChanged,
+                automaticBarcodeProtectionEnabled,
+                true);
+    }
+
+    /** Evaluates creator-enabled lanes and forgets disabled-lane carry immediately. */
+    public synchronized Result evaluate(
+            FrameTimestamp frameTimestamp,
+            List<DetectorSnapshot> detectorSnapshots,
+            boolean sceneChanged,
+            boolean automaticBarcodeProtectionEnabled,
+            boolean privateWordProtectionEnabled) {
         Objects.requireNonNull(frameTimestamp, "frameTimestamp");
         Objects.requireNonNull(detectorSnapshots, "detectorSnapshots");
         if (detectorSnapshots.size() > configuration.maximumSnapshotsPerEvaluation()) {
@@ -39,12 +65,21 @@ public final class SensitiveFindingPolicy {
         }
         if (sceneChanged) {
             lanes.clear();
+            consumedSnapshots.clear();
         }
         Map<DetectorLane, DetectorSnapshot> latest = latestAtOrBefore(
                 frameTimestamp, detectorSnapshots);
         ArrayList<ProtectedRegion> combined = new ArrayList<>();
         Basis overall = Basis.FRESH;
         for (DetectorLane lane : configuration.requiredLanes().stream().sorted().toList()) {
+            if (lane == DetectorLane.BARCODE && !automaticBarcodeProtectionEnabled) {
+                lanes.remove(lane);
+                continue;
+            }
+            if (lane == DetectorLane.TEXT && !privateWordProtectionEnabled) {
+                lanes.remove(lane);
+                continue;
+            }
             DetectorSnapshot snapshot = latest.get(lane);
             LaneState previous = lanes.get(lane);
             if (snapshot != null && snapshot.failure().isPresent()) {
@@ -57,8 +92,9 @@ public final class SensitiveFindingPolicy {
                 snapshot = null;
             }
             boolean newSnapshot = snapshot != null
-                    && (previous == null || snapshot.sourceTimestamp().compareTo(
-                            previous.sourceTimestamp()) > 0);
+                    && (consumedSnapshots.get(lane) == null
+                            || snapshot.sourceTimestamp().compareTo(
+                                    consumedSnapshots.get(lane)) > 0);
             if (sceneChanged && snapshot != null
                     && !snapshot.sourceTimestamp().equals(frameTimestamp)) {
                 snapshot = null;
@@ -76,14 +112,23 @@ public final class SensitiveFindingPolicy {
                 newSnapshot = false;
             }
             if (newSnapshot) {
+                // Remember every inspected snapshot even if it fails validation. Once a bounded
+                // assessment expires, repeatedly presenting that same old snapshot must never
+                // resurrect its mask on alternating frames.
+                consumedSnapshots.put(lane, snapshot.sourceTimestamp());
                 if (!snapshot.isFreshAt(frameTimestamp)
                         || !validForLane(lane, snapshot.findings())
                         || !withinBounds(snapshot.findings())) {
                     lanes.remove(lane);
                     return Result.shieldRequired();
                 }
+                // The source timestamp can substantially precede delivery for an offline
+                // analyzer such as OCR. Freshness above still limits how old an assessment may
+                // be when accepted, but carry must start at acceptance; counting again from the
+                // capture timestamp can consume the entire carry window during inference and
+                // flash the full shield before the next successful result arrives.
                 previous = new LaneState(
-                        snapshot.sourceTimestamp(), List.copyOf(snapshot.findings()));
+                        frameTimestamp, List.copyOf(snapshot.findings()));
                 lanes.put(lane, previous);
             }
             if (previous == null) {
@@ -92,7 +137,7 @@ public final class SensitiveFindingPolicy {
             long age;
             try {
                 age = Math.subtractExact(
-                        frameTimestamp.nanos(), previous.sourceTimestamp().nanos());
+                        frameTimestamp.nanos(), previous.acceptedTimestamp().nanos());
             } catch (ArithmeticException overflow) {
                 return shieldAndClear();
             }
@@ -126,6 +171,7 @@ public final class SensitiveFindingPolicy {
     /** Clears state at lifecycle stop or before a new session. */
     public synchronized void reset() {
         lanes.clear();
+        consumedSnapshots.clear();
     }
 
     private Result shieldAndClear() {
@@ -181,11 +227,7 @@ public final class SensitiveFindingPolicy {
     }
 
     private static boolean isTextCategory(FindingCategory category) {
-        return category == FindingCategory.AUTO_EMAIL
-                || category == FindingCategory.AUTO_PHONE
-                || category == FindingCategory.AUTO_CARD
-                || category == FindingCategory.AUTO_OTP
-                || category == FindingCategory.WATCHLIST_MATCH;
+        return category == FindingCategory.WATCHLIST_MATCH;
     }
 
     private List<ProtectedRegion> expand(List<ProtectedRegion> regions) {
@@ -265,6 +307,6 @@ public final class SensitiveFindingPolicy {
     }
 
     private record LaneState(
-            FrameTimestamp sourceTimestamp, List<ProtectedRegion> regions) {
+            FrameTimestamp acceptedTimestamp, List<ProtectedRegion> regions) {
     }
 }

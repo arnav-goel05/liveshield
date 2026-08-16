@@ -24,6 +24,19 @@ public final class IndoorPrivacySetupControllerTest {
     }
 
     @Test
+    public void barcodeProtectionDefaultsOnTogglesImmediatelyAndResetsWithSession() {
+        IndoorPrivacySetupController controller = new IndoorPrivacySetupController();
+
+        assertTrue(controller.snapshot().automaticBarcodeProtectionEnabled());
+        controller.setAutomaticBarcodeProtectionEnabled(false);
+        assertFalse(controller.snapshot().automaticBarcodeProtectionEnabled());
+
+        controller.clearSession();
+
+        assertTrue(controller.snapshot().automaticBarcodeProtectionEnabled());
+    }
+
+    @Test
     public void termNormalizationPreservesPunctuationForLaterExactWordBoundaryMatching() {
         IndoorPrivacySetupController controller = new IndoorPrivacySetupController();
 

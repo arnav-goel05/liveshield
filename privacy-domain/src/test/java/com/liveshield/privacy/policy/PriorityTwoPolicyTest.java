@@ -34,9 +34,8 @@ public final class PriorityTwoPolicyTest {
     }
 
     @Test
-    public void automaticPatternsWatchlistAndBarcodeKeepExactProvenance() {
+    public void watchlistAndBarcodeKeepExactProvenance() {
         List<ProtectedRegion> text = List.of(
-                region(FindingCategory.AUTO_EMAIL, rect(0.05, 0.1, 0.15, 0.2)),
                 region(FindingCategory.WATCHLIST_MATCH, rect(0.30, 0.1, 0.50, 0.2)));
 
         PriorityTwoPolicy.Result result = evaluate(
@@ -50,9 +49,37 @@ public final class PriorityTwoPolicyTest {
 
         assertEquals(List.of(
                         FindingCategory.AUTO_BARCODE,
-                        FindingCategory.AUTO_EMAIL,
                         FindingCategory.WATCHLIST_MATCH),
                 result.regions().stream().map(ProtectedRegion::category).toList());
+    }
+
+    @Test
+    public void disablingBarcodeRemovesCarryKeepsZonesAndRequiresFreshDataWhenReenabled() {
+        SessionPrivacyConfiguration configuration = configuration(List.of(FULL_ZONE));
+        ProtectedRegion barcode = region(
+                FindingCategory.AUTO_BARCODE, rect(0.70, 0.1, 0.85, 0.25));
+        PriorityTwoPolicy.Result enabled = evaluate(100, List.of(
+                emptySnapshot(DetectorLane.TEXT, 100),
+                snapshot(DetectorLane.BARCODE, 100, List.of(barcode))),
+                configuration, false);
+
+        configuration.setAutomaticBarcodeProtectionEnabled(false);
+        PriorityTwoPolicy.Result disabled = evaluate(101, List.of(), configuration, false);
+        configuration.setAutomaticBarcodeProtectionEnabled(true);
+        PriorityTwoPolicy.Result staleReenable = evaluate(
+                102, List.of(), configuration, false);
+        PriorityTwoPolicy.Result freshReenable = evaluate(103, List.of(
+                emptySnapshot(DetectorLane.BARCODE, 103)), configuration, false);
+
+        assertTrue(enabled.regions().stream().anyMatch(region ->
+                region.category() == FindingCategory.AUTO_BARCODE));
+        assertFalse(disabled.regions().stream().anyMatch(region ->
+                region.category() == FindingCategory.AUTO_BARCODE));
+        assertEquals(List.of(FULL_ZONE),
+                only(disabled, FindingCategory.PRIVACY_ZONE).bounds());
+        assertEquals(SensitiveFindingPolicy.Basis.SHIELD_REQUIRED, staleReenable.basis());
+        assertEquals(List.of(FULL_ZONE),
+                only(freshReenable, FindingCategory.PRIVACY_ZONE).bounds());
     }
 
     @Test
@@ -136,9 +163,9 @@ public final class PriorityTwoPolicyTest {
     @Test
     public void sameProvenanceOverlapsMergeDeterministicallyAcrossInputOrder() {
         ProtectedRegion first = region(
-                FindingCategory.AUTO_EMAIL, rect(0.1, 0.1, 0.3, 0.3));
+                FindingCategory.WATCHLIST_MATCH, rect(0.1, 0.1, 0.3, 0.3));
         ProtectedRegion second = region(
-                FindingCategory.AUTO_EMAIL, rect(0.2, 0.2, 0.4, 0.4));
+                FindingCategory.WATCHLIST_MATCH, rect(0.2, 0.2, 0.4, 0.4));
 
         PriorityTwoPolicy.Result result = evaluate(100, List.of(
                 snapshot(DetectorLane.TEXT, 100, List.of(second, first)),
@@ -151,19 +178,17 @@ public final class PriorityTwoPolicyTest {
 
     @Test
     public void overlapAcrossDifferentProvenanceNeverErasesEitherProtection() {
-        ProtectedRegion email = region(
-                FindingCategory.AUTO_EMAIL, rect(0.1, 0.1, 0.4, 0.4));
         ProtectedRegion watchlist = region(
                 FindingCategory.WATCHLIST_MATCH, rect(0.2, 0.2, 0.3, 0.3));
 
         PriorityTwoPolicy.Result result = evaluate(100, List.of(
-                snapshot(DetectorLane.TEXT, 100, List.of(email, watchlist)),
+                snapshot(DetectorLane.TEXT, 100, List.of(watchlist)),
                 emptySnapshot(DetectorLane.BARCODE, 100)),
-                configuration(List.of()), false);
+                configuration(List.of(FULL_ZONE)), false);
 
         assertEquals(2, result.regions().size());
         assertTrue(result.regions().stream().anyMatch(region ->
-                region.category() == FindingCategory.AUTO_EMAIL));
+                region.category() == FindingCategory.PRIVACY_ZONE));
         assertTrue(result.regions().stream().anyMatch(region ->
                 region.category() == FindingCategory.WATCHLIST_MATCH));
     }

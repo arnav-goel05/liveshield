@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail closed unless the T119 APK contains the frozen PP-OCRv3 baseline."""
+"""Fail closed unless the APK contains the exact private-word OCR bundle."""
 
 from __future__ import annotations
 
@@ -25,19 +25,24 @@ REQUIRED = (
         "9d3c629313d47d203385216a756610eb00ee2496a06ff724cc34904deda70f22",
     ),
     Artifact(
-        "assets/models/paddleocr/en_PP-OCRv3_rec_slim_infer.nb",
-        3_313_574,
-        "053b3a99fc88233c5ea5fda10141cf2f9c81e93ca2b74ce3dcf8208d3e80185d",
+        "assets/models/paddleocr/en_PP-OCRv5_mobile_rec.onnx",
+        7_843_511,
+        "70b2450eed39599af6b996c27a2f1a0ef30eeb49f9f66dd3e74f28f652befc89",
     ),
     Artifact(
-        "assets/models/paddleocr/en_dict.txt",
-        190,
-        "5662df9d2d03f0e8ca0d3b0649d6acbab904b6a14b3d3521463c71c37c668ce3",
+        "assets/models/paddleocr/en_PP-OCRv5_dict.txt",
+        1_416,
+        "e025a66d31f327ba0c232e03f407ae8d105e1e709e7ccb3f408aa778c24e70d6",
     ),
     Artifact(
         "lib/arm64-v8a/libpaddle_lite_jni.so",
         3_176_664,
         "43ad4f58221570575e58d6af77653f476f7af485ee970ea924f20c0579cc2e01",
+    ),
+    Artifact(
+        "lib/arm64-v8a/libonnxruntime.so",
+        28_637_280,
+        "f826d8efb03adf0a84f10e7ba408f9d4cd11b0a2ccd8d08aeb0f7451fb50cacc",
     ),
 )
 
@@ -48,6 +53,8 @@ FORBIDDEN_PATHS = frozenset(
         "assets/models/opencv-crnn/PROVENANCE.properties",
         "assets/models/paddleocr/PP-OCRv5_mobile_rec.nb",
         "assets/models/paddleocr/ppocr_keys_ocrv5.txt",
+        "assets/models/paddleocr/en_PP-OCRv3_rec_slim_infer.nb",
+        "assets/models/paddleocr/en_dict.txt",
     }
 )
 FORBIDDEN_HASHES = frozenset(

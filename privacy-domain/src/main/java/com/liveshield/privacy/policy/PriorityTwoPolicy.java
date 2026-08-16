@@ -37,7 +37,11 @@ public final class PriorityTwoPolicy {
             return Result.shieldRequired();
         }
         SensitiveFindingPolicy.Result findings = findingPolicy.evaluate(
-                frameTimestamp, detectorSnapshots, sceneChanged);
+                frameTimestamp,
+                detectorSnapshots,
+                sceneChanged,
+                sessionConfiguration.automaticBarcodeProtectionEnabled(),
+                !sessionConfiguration.normalizedWatchlistTerms().isEmpty());
         if (findings.basis() == SensitiveFindingPolicy.Basis.SHIELD_REQUIRED) {
             return Result.shieldRequired();
         }

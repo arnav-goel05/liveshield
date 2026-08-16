@@ -41,7 +41,7 @@ class PriorityTwoDevelopmentApkTest(unittest.TestCase):
 
     def test_accepts_only_exact_required_artifacts(self):
         result = MODULE.verify(self.write_apk(self.configure_small_required()))
-        self.assertEqual(4, len(result["artifacts"]))
+        self.assertEqual(5, len(result["artifacts"]))
 
     def test_rejects_stale_runtime_at_required_path(self):
         entries = self.configure_small_required()

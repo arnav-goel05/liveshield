@@ -58,7 +58,7 @@ wiring is not evidence that the current OCR model detects supported text reliabl
 ## Build and local checks
 
 Requirements are Android Studio/JDK 17, Android SDK 36 platform tools, and the checked-in Gradle
-wrapper. The project compiles against SDK 37, targets SDK 36, and has minimum SDK 23. Current OCR
+wrapper. The project compiles against SDK 37, targets SDK 36, and has minimum SDK 24. Current OCR
 packaging deliberately supports `arm64-v8a` only.
 
 ```bash
@@ -107,9 +107,11 @@ interchangeable.
   raw-pixel checks. The selected 200-image WIDER run is detector-regression evidence, not a general
   accuracy benchmark.
 - Offline YuNet face inference and ZXing barcode decoding are device/JVM verified respectively.
-- The frozen T119 Noto v2 DEVELOPMENT run observed QR 8/8 and configured zones 32/32, but automatic
-  text 0/32 and watchlists 0/32. PP-OCRv5 and CRNN candidates failed before complete evaluation and
-  have no accuracy result. SC-002 and SC-009 remain unmet; HOLDOUT remains sealed. See
+- The app now packages the English PP-OCRv5 recognizer for session-only private words. Its
+  API-24 source and release packaging gates pass, but it has not been run on a device or evaluated.
+  Automatic email, phone, card, and OTP rules remain disabled. Earlier DEVELOPMENT evidence was
+  QR 8/8, configured zones 32/32, and text/watchlists 0/32, so SC-002 and SC-009 remain unmet and
+  HOLDOUT remains sealed. See
   [`docs/verification/t119-ocr-development.md`](docs/verification/t119-ocr-development.md).
 - The current corpus contains 274 of the planned 286 records. The missing 12 are consented adult
   face clips that require the separately reviewed external capture protocol; no substitute data is
