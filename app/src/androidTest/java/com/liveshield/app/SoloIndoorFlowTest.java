@@ -48,7 +48,7 @@ public final class SoloIndoorFlowTest {
             scenario.onActivity(activity ->
                     SetupActivityTestHarness.installCameraPermission(
                             activity, false, cameraRequests));
-            onView(withText(R.string.scope_disclosure_unsupported)).check(matches(isDisplayed()));
+            onView(withText(R.string.onboarding_video_title)).check(matches(isDisplayed()));
             onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());
             onView(withId(R.id.camera_permission_status))
                     .check(matches(withText(R.string.camera_permission_denied)));
@@ -71,7 +71,7 @@ public final class SoloIndoorFlowTest {
             scenario.onActivity(SetupActivityTestHarness::assertReleaseBoundary);
             scenario.onActivity(activity ->
                     SetupActivityTestHarness.installCameraPermission(activity, true));
-            onView(withText(R.string.scope_disclosure_unsupported)).check(matches(isDisplayed()));
+            onView(withText(R.string.onboarding_video_title)).check(matches(isDisplayed()));
             onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());
             scenario.onActivity(activity -> {
                 SetupActivityTestHarness.install(activity, new SetupUiListener() {
@@ -158,7 +158,7 @@ public final class SoloIndoorFlowTest {
                      ActivityScenario.launch(SetupActivity.class)) {
             scenario.onActivity(activity ->
                     SetupActivityTestHarness.installCameraPermission(activity, false));
-            onView(withText(R.string.scope_disclosure_visual_only)).check(matches(isDisplayed()));
+            onView(withText(R.string.onboarding_video_detail)).check(matches(isDisplayed()));
             onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());
             onView(withText(R.string.video_only_notice)).check(matches(isDisplayed()));
         }

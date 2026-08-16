@@ -2,6 +2,7 @@ package com.liveshield.app.setup;
 
 import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
+import static androidx.test.espresso.action.ViewActions.swipeLeft;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
 import static androidx.test.espresso.matcher.ViewMatchers.withId;
@@ -31,11 +32,13 @@ public final class ScopeDisclosureFragmentTest {
                 SetupActivityTestHarness.installCameraPermission(activity, false);
             });
 
-            onView(withId(R.id.scope_disclosure_title)).check(matches(isDisplayed()));
-            onView(withId(R.id.scope_disclosure_visual_only)).check(matches(isDisplayed()));
-            onView(withId(R.id.scope_disclosure_unsupported)).check(matches(isDisplayed()));
-            onView(withId(R.id.scope_disclosure_review)).check(matches(isDisplayed()));
+            onView(withText(R.string.onboarding_video_title)).check(matches(isDisplayed()));
             onView(withId(R.id.setup_content)).check(matches(not(isDisplayed())));
+
+            onView(withId(R.id.onboarding_carousel)).perform(swipeLeft());
+            onView(withText(R.string.onboarding_toolkit_title)).check(matches(isDisplayed()));
+            onView(withId(R.id.onboarding_carousel)).perform(swipeLeft());
+            onView(withText(R.string.onboarding_live_title)).check(matches(isDisplayed()));
 
             onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());
             scenario.onActivity(activity ->

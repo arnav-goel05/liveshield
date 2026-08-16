@@ -1,248 +1,186 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:tools="http://schemas.android.com/tools"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/onboarding_carousel"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true"
-    android:importantForAccessibility="yes">
+    android:clickable="true"
+    android:focusable="true"
+    android:importantForAccessibility="yes"
+    android:orientation="vertical"
+    android:paddingLeft="24dp"
+    android:paddingTop="8dp"
+    android:paddingRight="24dp"
+    android:paddingBottom="20dp">
+
+    <ImageView
+        android:id="@+id/onboarding_logo"
+        android:layout_width="210dp"
+        android:layout_height="62dp"
+        android:layout_gravity="center_horizontal"
+        android:contentDescription="@string/onboarding_logo_description"
+        android:scaleType="fitCenter"
+        android:src="@drawable/liveshield_brand_lockup" />
 
     <LinearLayout
+        android:id="@+id/onboarding_slide_content"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingLeft="24dp"
-        android:paddingTop="20dp"
-        android:paddingRight="24dp"
-        android:paddingBottom="24dp">
-
-        <LinearLayout
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            tools:ignore="UseCompoundDrawables">
-
-            <ImageView
-                android:layout_width="30dp"
-                android:layout_height="30dp"
-                android:contentDescription="@null"
-                android:importantForAccessibility="no"
-                android:src="@drawable/ic_privacy_shield"
-                android:tint="@color/ls_teal_dark" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:text="@string/app_name"
-                android:textColor="@color/ls_ink"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:orientation="vertical">
 
         <TextView
             android:id="@+id/scope_disclosure_title"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
             android:gravity="center"
-            android:text="@string/scope_disclosure_title"
+            android:maxLines="2"
+            android:text="@string/onboarding_video_title"
             android:textAlignment="center"
             android:textColor="@color/ls_ink"
-            android:textSize="36sp"
+            android:textSize="32sp"
             android:textStyle="bold" />
 
         <TextView
             android:id="@+id/scope_disclosure_supported"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
+            android:layout_marginTop="8dp"
             android:accessibilityTraversalAfter="@id/scope_disclosure_title"
             android:gravity="center"
-            android:text="@string/scope_disclosure_supported"
+            android:maxLines="2"
+            android:text="@string/onboarding_video_detail"
             android:textAlignment="center"
             android:textColor="@color/ls_slate"
             android:textSize="16sp" />
-
-        <LinearLayout
+        <FrameLayout
+            android:id="@+id/onboarding_hero_frame"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="30dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@drawable/ls_step_circle"
-                android:gravity="center"
-                android:importantForAccessibility="no"
-                android:text="@string/setup_step_one"
-                android:textColor="@color/ls_white"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+            android:layout_height="300dp"
+            android:layout_marginTop="18dp"
+            android:accessibilityTraversalAfter="@id/scope_disclosure_supported">
 
             <ImageView
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_marginStart="20dp"
-                android:contentDescription="@null"
-                android:importantForAccessibility="no"
-                android:src="@drawable/ic_ls_video_off"
-                android:tint="@color/ls_teal" />
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="18dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/scope_video_title"
-                    android:textColor="@color/ls_ink"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/scope_disclosure_visual_only"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:accessibilityTraversalAfter="@id/scope_disclosure_supported"
-                    android:text="@string/scope_disclosure_visual_only"
-                    android:textColor="@color/ls_slate"
-                    android:textSize="15sp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <View
-            android:layout_width="1dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="19dp"
-            android:background="@color/ls_teal" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+                android:id="@+id/onboarding_hero"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/onboarding_image_frame"
+                android:contentDescription="@string/onboarding_video_image_description"
+                android:scaleType="fitCenter"
+                android:src="@drawable/onboarding_video_only" />
 
             <TextView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@drawable/ls_step_circle"
+                android:id="@+id/onboarding_face_pill"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_gravity="top|start"
+                android:layout_marginStart="30dp"
+                android:layout_marginTop="112dp"
+                android:background="@drawable/onboarding_pill_face"
                 android:gravity="center"
                 android:importantForAccessibility="no"
-                android:text="@string/setup_step_two"
-                android:textColor="@color/ls_white"
-                android:textSize="15sp"
-                android:textStyle="bold" />
-
-            <ImageView
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_marginStart="20dp"
-                android:contentDescription="@null"
-                android:importantForAccessibility="no"
-                android:src="@drawable/ic_ls_home"
-                android:tint="@color/ls_teal" />
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="18dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/scope_indoor_title"
-                    android:textColor="@color/ls_ink"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/scope_disclosure_unsupported"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:accessibilityTraversalAfter="@id/scope_disclosure_visual_only"
-                    android:text="@string/scope_disclosure_unsupported"
-                    android:textColor="@color/ls_slate"
-                    android:textSize="15sp" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <View
-            android:layout_width="1dp"
-            android:layout_height="28dp"
-            android:layout_marginStart="19dp"
-            android:background="@color/ls_teal" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:text="@string/onboarding_toolkit_face_label"
+                android:textColor="@color/ls_ink"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
             <TextView
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@drawable/ls_step_circle"
+                android:id="@+id/onboarding_qr_pill"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_gravity="top|end"
+                android:layout_marginTop="112dp"
+                android:layout_marginEnd="30dp"
+                android:background="@drawable/onboarding_pill_qr"
                 android:gravity="center"
                 android:importantForAccessibility="no"
-                android:text="@string/setup_step_three"
-                android:textColor="@color/ls_white"
-                android:textSize="15sp"
-                android:textStyle="bold" />
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:text="@string/onboarding_toolkit_qr_label"
+                android:textColor="@color/ls_ink"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
-            <ImageView
-                android:layout_width="36dp"
-                android:layout_height="36dp"
-                android:layout_marginStart="20dp"
-                android:contentDescription="@null"
+            <TextView
+                android:id="@+id/onboarding_text_pill"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_gravity="bottom|start"
+                android:layout_marginStart="30dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/onboarding_pill_text"
+                android:gravity="center"
                 android:importantForAccessibility="no"
-                android:src="@drawable/ic_ls_verified"
-                android:tint="@color/ls_teal" />
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:text="@string/onboarding_toolkit_text_label"
+                android:textColor="@color/ls_ink"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
 
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="18dp"
-                android:layout_weight="1"
-                android:orientation="vertical">
+            <TextView
+                android:id="@+id/onboarding_zone_pill"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:layout_gravity="bottom|end"
+                android:layout_marginEnd="30dp"
+                android:layout_marginBottom="12dp"
+                android:background="@drawable/onboarding_pill_zone"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:paddingLeft="12dp"
+                android:paddingRight="12dp"
+                android:text="@string/onboarding_toolkit_zone_label"
+                android:textColor="@color/ls_ink"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </FrameLayout>
 
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="@string/scope_review_title"
-                    android:textColor="@color/ls_ink"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="24dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:importantForAccessibility="no"
+            android:orientation="horizontal">
 
-                <TextView
-                    android:id="@+id/scope_disclosure_review"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:accessibilityTraversalAfter="@id/scope_disclosure_unsupported"
-                    android:text="@string/scope_review_detail"
-                    android:textColor="@color/ls_slate"
-                    android:textSize="15sp" />
-            </LinearLayout>
+            <View
+                android:id="@+id/onboarding_dot_one"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:background="@drawable/onboarding_dot_active" />
+
+            <View
+                android:id="@+id/onboarding_dot_two"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:layout_marginStart="12dp"
+                android:background="@drawable/onboarding_dot_inactive" />
+
+            <View
+                android:id="@+id/onboarding_dot_three"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:layout_marginStart="12dp"
+                android:background="@drawable/onboarding_dot_inactive" />
         </LinearLayout>
-
-        <Button
-            android:id="@+id/acknowledge_scope_disclosure"
-            style="@style/LiveShieldPrimaryButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="32dp"
-            android:accessibilityTraversalAfter="@id/scope_disclosure_review"
-            android:text="@string/acknowledge_scope_disclosure" />
     </LinearLayout>
-</ScrollView>
+
+    <Button
+        android:id="@+id/acknowledge_scope_disclosure"
+        style="@style/LiveShieldPrimaryButton"
+        android:layout_width="match_parent"
+        android:layout_height="60dp"
+        android:layout_marginTop="8dp"
+        android:accessibilityTraversalAfter="@id/onboarding_hero"
+        android:background="@drawable/onboarding_primary_button"
+        android:text="@string/acknowledge_scope_disclosure"
+        android:textSize="17sp" />
+</LinearLayout>

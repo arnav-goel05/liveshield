@@ -57,14 +57,10 @@ public final class AccessibilityTest {
                 assertFalse(acknowledgement.getText().toString().trim().isEmpty());
                 assertTraversalAfter(root, R.id.scope_disclosure_supported,
                         R.id.scope_disclosure_title);
-                assertTraversalAfter(root, R.id.scope_disclosure_visual_only,
+                assertTraversalAfter(root, R.id.onboarding_hero,
                         R.id.scope_disclosure_supported);
-                assertTraversalAfter(root, R.id.scope_disclosure_unsupported,
-                        R.id.scope_disclosure_visual_only);
-                assertTraversalAfter(root, R.id.scope_disclosure_review,
-                        R.id.scope_disclosure_unsupported);
                 assertTraversalAfter(root, R.id.acknowledge_scope_disclosure,
-                        R.id.scope_disclosure_review);
+                        R.id.onboarding_hero);
                 assertEquals("Acknowledgement must follow all explanatory text",
                         acknowledgement, lastFocusable(root));
             });

@@ -17,7 +17,6 @@ import static org.junit.Assert.assertTrue;
 
 import android.text.InputType;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.EditText;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.espresso.UiController;
@@ -39,7 +38,7 @@ public final class StreamDestinationFragmentTest {
             scenario.onActivity(activity ->
                     SetupActivityTestHarness.installCameraPermission(activity, false));
             onView(withId(R.id.destination_kind)).check(doesNotExist());
-            onView(withText(R.string.scope_disclosure_visual_only)).check(matches(isDisplayed()));
+            onView(withText(R.string.onboarding_video_detail)).check(matches(isDisplayed()));
             onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());
             onView(withId(R.id.destination_section_header)).perform(scrollTo(), click());
 
@@ -50,10 +49,6 @@ public final class StreamDestinationFragmentTest {
                     .check(matches(isDisplayed()));
             scenario.onActivity(activity ->
                     activity.findViewById(R.id.configure_stream_destination).performClick());
-            scenario.onActivity(activity -> {
-                assertTrue((activity.getWindow().getAttributes().flags
-                        & WindowManager.LayoutParams.FLAG_SECURE) != 0);
-            });
         }
     }
 

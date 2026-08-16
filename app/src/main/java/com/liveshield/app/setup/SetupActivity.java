@@ -7,7 +7,6 @@ import android.os.Trace;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowInsets;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -15,7 +14,6 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.fragment.app.FragmentActivity;
-import com.liveshield.app.BuildConfig;
 import com.liveshield.app.R;
 import com.liveshield.app.session.CameraSessionGraph;
 import com.liveshield.app.diagnostics.AppDiagnostics;
@@ -40,8 +38,6 @@ public final class SetupActivity extends FragmentActivity
     private static final String CAMERA_PERMISSION_REQUESTED_STATE =
             "cameraPermissionRequested";
     private static final String DISCLOSURE_FRAGMENT_TAG = "scope-disclosure";
-    static final String DEBUG_ALLOW_SCREEN_CAPTURE =
-            "com.liveshield.app.debug.ALLOW_SCREEN_CAPTURE";
     private static final CameraPermissionPort SYSTEM_CAMERA_PERMISSION =
             new CameraPermissionPort() {
                 @Override
@@ -95,11 +91,6 @@ public final class SetupActivity extends FragmentActivity
         try {
             super.onCreate(savedInstanceState);
             setContentView(R.layout.activity_setup);
-            boolean debugCaptureRequested = getIntent().getBooleanExtra(
-                    DEBUG_ALLOW_SCREEN_CAPTURE, false);
-            if (!allowDebugScreenCapture(BuildConfig.DEBUG, debugCaptureRequested)) {
-                getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-            }
             setupContent = findViewById(R.id.setup_content);
             scopeDisclosureContainer = findViewById(R.id.scope_disclosure_container);
             applySystemBarInsets(setupContent);
@@ -150,10 +141,6 @@ public final class SetupActivity extends FragmentActivity
         }
     }
 
-    static boolean allowDebugScreenCapture(boolean debugBuild, boolean explicitlyRequested) {
-        return debugBuild && explicitlyRequested;
-    }
-
     private static void applySystemBarInsets(View view) {
         int left = view.getPaddingLeft();
         int top = view.getPaddingTop();
@@ -188,12 +175,6 @@ public final class SetupActivity extends FragmentActivity
     @SuppressWarnings("deprecation")
     private static int systemInsetBottom(WindowInsets insets) {
         return insets.getSystemWindowInsetBottom();
-    }
-
-    boolean isDebugScreenCaptureAllowed() {
-        return allowDebugScreenCapture(
-                BuildConfig.DEBUG,
-                getIntent().getBooleanExtra(DEBUG_ALLOW_SCREEN_CAPTURE, false));
     }
 
     @Override

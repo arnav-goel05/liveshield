@@ -17,16 +17,14 @@ public final class ScopeDisclosureResourceTest {
         String layout = readProjectFile("src/main/res/layout/fragment_scope_disclosure.xml");
         String strings = readProjectFile("src/main/res/values/strings.xml");
 
-        assertTrue(layout.contains("@string/scope_disclosure_supported"));
-        assertTrue(layout.contains("@string/scope_disclosure_visual_only"));
-        assertTrue(layout.contains("@string/scope_disclosure_unsupported"));
-        assertTrue(layout.contains("@string/scope_review_detail"));
+        assertTrue(layout.contains("@drawable/liveshield_brand_lockup"));
+        assertTrue(layout.contains("@string/onboarding_video_title"));
+        assertTrue(layout.contains("@drawable/onboarding_video_only"));
         assertTrue(layout.contains("@string/acknowledge_scope_disclosure"));
-        assertTrue(strings.contains("Your microphone always stays off."));
-        assertTrue(strings.contains("Best for solo indoor streams"));
-        assertTrue(strings.contains("Check your preview before going live"));
-        assertTrue(strings.contains("Continue to setup"));
-        assertTrue(strings.contains("name=\"scope_video_title\">Video only</string>"));
+        assertTrue(strings.contains("Microphone analysis is coming soon."));
+        assertTrue(strings.contains("Your privacy toolkit"));
+        assertTrue(strings.contains("connect directly to TikTok LIVE"));
+        assertTrue(strings.contains("Let’s get started"));
         assertFalse(layout.contains("scope_disclosure_no_anonymity"));
         assertFalse(strings.contains("Not a guarantee of anonymity"));
     }

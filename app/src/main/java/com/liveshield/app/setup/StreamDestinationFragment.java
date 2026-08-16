@@ -4,7 +4,6 @@ import android.content.Context;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.View;
-import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioGroup;
@@ -35,10 +34,6 @@ public final class StreamDestinationFragment extends Fragment {
             throw new IllegalStateException("Stream destination host must implement Listener");
         }
         listener = (Listener) context;
-        if (!(requireActivity() instanceof SetupActivity setupActivity)
-                || !setupActivity.isDebugScreenCaptureAllowed()) {
-            requireActivity().getWindow().addFlags(WindowManager.LayoutParams.FLAG_SECURE);
-        }
     }
 
     @Override

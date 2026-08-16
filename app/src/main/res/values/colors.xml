@@ -13,5 +13,6 @@
     <color name="ls_warning">#FFB52D1C</color>
     <color name="ls_warning_pale">#FFFFF0EC</color>
     <color name="ls_outline">#FFC4C9CE</color>
+    <color name="ls_carousel_dot_inactive">#FFC8CDD2</color>
 
 </resources>
