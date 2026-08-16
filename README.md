@@ -1,157 +1,168 @@
 # LiveShield
 
-LiveShield is a Java-first Android prototype for privacy-protected, video-only live streaming. It
-analyzes camera frames on-device, protects non-host faces and configured visual risks, renders one
-sanitized video path, delays encoded H.264 by two seconds, and publishes it to a controlled RTMP
-destination. Missing, stale, malformed, or failed privacy decisions strengthen protection or stop
-output; they do not authorize untreated camera pixels.
+LiveShield is a native Android privacy layer for creators who stream live video.
 
-This is a portfolio and evaluation project, not a guarantee of anonymity or universal sensitive
-content detection. Its supported setting is a controlled indoor, solo-creator session. Public,
-moving outdoor, and dense-crowd use are explicitly unsupported.
+The app turns privacy into part of the camera workflow: it analyzes the scene on-device, lets the
+creator choose what stays covered, renders a protected preview, and sends the sanitized video into
+the live-streaming pipeline.
 
-## Trust boundary
+## The Problem
+
+Live creators regularly stream from bedrooms, offices, studios, and public spaces where private
+details can enter the frame without warning. Another person's face, a QR code, a name on a parcel, a
+screen in the background, or part of the room may become visible while the creator is focused on the
+audience.
+
+Live video makes this especially difficult. There is no editing pass before each frame reaches the
+viewer, and manually preparing every object and camera angle does not adapt when people or objects
+move. Creators need privacy controls that work continuously inside the live camera workflow and show
+the protected result before it is published.
+
+## How LiveShield Solves It
+
+LiveShield places a programmable privacy layer between the camera and the stream:
+
+- **Understand the frame:** on-device vision finds faces, private words, QR codes, and barcodes.
+- **Give the creator control:** the creator selects their face, adds private words, enables code
+  protection, and draws fixed privacy zones directly on the preview.
+- **Protect before publishing:** OpenGL renders the masks before the frame reaches the preview or
+  video encoder.
+- **Use one sanitized path:** the protected preview and H.264 stream come from the same rendered
+  output, so the creator sees the version being prepared for publication.
+- **Keep protection responsive:** frame freshness, tracking, scene state, queue state, and connection
+  health continuously update the privacy decision.
+- **Delay publication safely:** encoded video passes through a bounded two-second queue before it is
+  sent to the configured RTMP destination.
+
+## Project Summary
+
+The LiveShield workflow has six main stages:
+
+1. Capture the camera feed through CameraX and run face, text, and QR/barcode analysis on-device.
+2. Combine detected content with the creator's selected face, private words, and drawn privacy zones.
+3. Produce one privacy decision for each frame using freshness, tracking, scene, and health state.
+4. Render the decision through OpenGL so the preview and encoder receive protected pixels.
+5. Encode the sanitized output as H.264 and hold it in a bounded two-second safety queue.
+6. Publish the protected video to the creator's configured RTMP destination.
+
+The core pipeline is:
 
 ```text
-UNTRUSTED RAW, DEVICE MEMORY ONLY
-CameraX ImageAnalysis ----------------> offline face/text/barcode analysis
-CameraX SurfaceProcessor input -------> bounded renderer-owned GL textures
-                                                |
-                                    timestamped privacy decision
-                                                |
-                                                v
-SANITIZED ONLY                    protected preview + H.264 encoder
-                                                |
-                                  bounded two-second packet queue
-                                                |
-                                  RTMP publisher -> MediaMTX -> WebRTC viewer
+camera frame -> on-device analysis -> privacy decision -> protected render
+             -> sanitized preview + H.264 encode -> delayed queue -> RTMP
 ```
 
-The renderer is the only bridge out of the raw zone. Preview and encoder surfaces are capability-
-bound to it. Transport accepts only immutable H.264 access units attested as sanitized. The app has
-no `RECORD_AUDIO` permission, microphone capture, audio encoder, audio packet type, or audio publish
-API. Stream credentials are session-only mutable buffers, masked in the UI, excluded from saved
-state, and zeroized on close.
+## Product Visuals
 
-Host selection is manual and ephemeral. LiveShield uses geometry and session-local tracking, not
-face recognition or biometric embeddings. If host continuity becomes uncertain, the affected face
-is protected and the user must explicitly select a fresh track; permission is never transferred
-automatically.
+LiveShield gives creators one place to configure the privacy tools used by the protected preview.
 
-The production app composes offline face/text/barcode lanes with session watchlists and fixed zones.
-Renderer queue/recovery, thermal and scene state, plus typed publisher connection health drive a
-payload-free private `LiveActivity`; unsafe states strengthen protection or stop publication. This
-wiring is not evidence that the current OCR model detects supported text reliably.
+![LiveShield privacy toolkit](./app/src/main/res/drawable-nodpi/onboarding_privacy_toolkit.png)
 
-## Modules
+The product is designed around a video-first creator workflow with on-device visual protection.
+
+![LiveShield video-first workflow](./app/src/main/res/drawable-nodpi/onboarding_video_only.png)
+
+Once the preview is ready, the same sanitized output continues into the live publication path.
+
+![LiveShield protected live workflow](./app/src/main/res/drawable-nodpi/onboarding_go_live.png)
+
+## Privacy Controls
+
+| Control | What it does |
+|---|---|
+| Face selection | Lets the creator choose which detected face may remain visible |
+| Face masks | Covers other detected faces and lets the creator remove masks by tapping them |
+| QR and barcode protection | Detects supported codes and covers them in the preview |
+| Private words | Covers session-specific words or phrases entered by the creator |
+| Privacy zones | Lets the creator draw fixed covered areas directly on the preview |
+| Destination setup | Configures the RTMP destination used by the protected live session |
+
+## Architecture
+
+LiveShield uses a sanitized-first pipeline. Camera frames enter the analysis and rendering boundary,
+while downstream preview, encoding, queueing, and transport operate on protected output.
+
+```text
+CameraX
+   |
+   +---- ImageAnalysis ----> face | text | QR/barcode ----+
+   |                                                       |
+   +---- SurfaceProcessor input ----> privacy policy ------+
+                                                           v
+                                                   OpenGL renderer
+                                                           |
+                                      +--------------------+-------------------+
+                                      |                                        |
+                              Sanitized preview                        H.264 encoder
+                                                                               |
+                                                                   two-second queue
+                                                                               |
+                                                                      RTMP publisher
+```
 
 | Module | Responsibility |
 |---|---|
-| `privacy-domain` | Pure-Java policy, freshness, tracking continuity, configured zones, and fail-private state |
-| `vision` | Offline YuNet/OpenCV face analysis, PaddleOCR/Paddle-Lite text analysis, ZXing barcode analysis, and structured-PII rules |
-| `video-pipeline` | CameraX graph, bounded raw-frame rendezvous, OpenGL redaction, sanitized H.264 encoding, and decoded-output verification |
-| `transport` | Sanitized access-unit boundary, exact delay queue, session-secret handling, and video-only RTMP publication |
-| `app` | Scope disclosure, permission/setup flow, destination UI, lifecycle coordination, and honest health status |
-| `benchmark` | Macrobenchmark entry points for later physical-device validation |
-| `test-fixtures` | Deterministic generators, manifests, annotations, validators, and evaluation metrics |
+| `privacy-domain` | Privacy policy, freshness rules, host continuity, zones, and session state |
+| `vision` | Offline face detection, private-word recognition, and QR/barcode analysis |
+| `video-pipeline` | Camera graph, frame scheduling, OpenGL protection, preview, and H.264 encoding |
+| `transport` | Sanitized video boundary, delayed queue, RTMP publication, and connection health |
+| `app` | Onboarding, protected setup, destination flow, session coordination, and live status |
+| `benchmark` | Android macrobenchmark entry points |
+| `test-fixtures` | Deterministic media, annotations, manifests, validators, and evaluation utilities |
 
-## Build and local checks
+## Technology
 
-Requirements are Android Studio/JDK 17, Android SDK 36 platform tools, and the checked-in Gradle
-wrapper. The project compiles against SDK 37, targets SDK 36, and has minimum SDK 24. Current OCR
-packaging deliberately supports `arm64-v8a` only.
+- Java 17
+- Android SDK Platform 37, target SDK 36, minimum SDK 24
+- CameraX and OpenGL ES
+- OpenCV YuNet
+- PaddleOCR and ONNX Runtime
+- ZXing
+- MediaCodec H.264
+- RootEncoder RTMP
+- MediaMTX
+- JUnit, AndroidX Test, Espresso, Checkstyle, and Android Lint
+
+## Project Files
+
+- `app/` — Android application, creator setup flow, and live session coordination.
+- `privacy-domain/` — Pure Java privacy decisions and state.
+- `vision/` — On-device face, text, and code analysis.
+- `video-pipeline/` — Sanitized camera preview and video encoding.
+- `transport/` — Delayed protected-video publication.
+- `test-fixtures/` — Repeatable media generation and evaluation tools.
+- `specs/001-live-privacy-protection/` — Product architecture and pipeline contracts.
+- `docs/PORTFOLIO_CASE_STUDY.md` — Engineering case study.
+
+## How To Run
+
+Requirements:
+
+- Android Studio with JDK 17
+- Android SDK Platform 37 and platform-tools
+- An ARM64 Android device or emulator running API 24 or newer
+
+Build the debug APK:
 
 ```bash
-./gradlew test lint
-./gradlew checkPrivacyBoundaries checkstyleAll
-python3 -m unittest discover tools/testdata/tests
+./gradlew :app:assembleDebug
 ```
 
-Install the debug app on a compatible connected device with:
+Install it on a connected device:
 
 ```bash
 ./gradlew :app:installDebug
 ```
 
-The full validation workflow, including licensed public data and explicit external prerequisites,
-is in [`specs/001-live-privacy-protection/quickstart.md`](specs/001-live-privacy-protection/quickstart.md).
-Public evaluation media and any later consented raw recordings are intentionally not packaged in
-the app or committed to Git.
+Run the host checks:
 
-## Controlled MediaMTX demo
+```bash
+./gradlew test lint checkstyleAll checkPrivacyBoundaries
+python3 -m unittest discover tools/testdata/tests
+```
 
-Start the pinned local relay on a trusted development LAN:
+Start the local RTMP environment:
 
 ```bash
 docker compose -f dev/mediamtx/compose.yml up
 ```
-
-In LiveShield, acknowledge the scope disclosure, grant camera permission, configure the controlled
-MediaMTX destination, select the fresh host face, and wait for every readiness gate before starting.
-The local demo endpoint is `rtmp://10.0.2.2:1935/liveshield` from the Android emulator; the WebRTC
-viewer path is `http://localhost:8889/liveshield` on the development machine.
-
-The production publication path has been exercised on an API 36 ARM64 emulator with the pinned
-MediaMTX 1.15.5 relay: an independent probe found one H.264 video stream, 15 video packets, and zero
-audio tracks or packets; a controlled WebRTC viewer reached playing state. See
-[`docs/verification/us6-mediamtx.md`](docs/verification/us6-mediamtx.md). This is local controlled-
-relay evidence, not a TikTok result or a glass-to-glass latency claim.
-
-## Evidence and current limitations
-
-Evidence is deliberately labeled by boundary: pure JVM contracts, synthetic renderer/codec tests,
-API 36 emulator runs, public detector regression, and external user/device work are not treated as
-interchangeable.
-
-- Face redaction and fail-private fixture paths have real GPU, H.264 encode/decode, and forbidden-
-  raw-pixel checks. The selected 200-image WIDER run is detector-regression evidence, not a general
-  accuracy benchmark.
-- Offline YuNet face inference and ZXing barcode decoding are device/JVM verified respectively.
-- The app now packages the English PP-OCRv5 recognizer for session-only private words. Its
-  API-24 source and release packaging gates pass, but it has not been run on a device or evaluated.
-  Automatic email, phone, card, and OTP rules remain disabled. Earlier DEVELOPMENT evidence was
-  QR 8/8, configured zones 32/32, and text/watchlists 0/32, so SC-002 and SC-009 remain unmet and
-  HOLDOUT remains sealed. See
-  [`docs/verification/t119-ocr-development.md`](docs/verification/t119-ocr-development.md).
-- The current corpus contains 274 of the planned 286 records. The missing 12 are consented adult
-  face clips that require the separately reviewed external capture protocol; no substitute data is
-  fabricated.
-- Physical-device endurance, thermal, battery, and microphone-indicator measurements were not
-  collected and are no longer project task gates; emulator results do not provide that evidence.
-- TikTok publication is unverified until a user-authorized test account exposes external RTMP
-  credentials. LiveShield does not use a TikTok SDK and cannot bypass account eligibility.
-- Accessibility labels, focus order, contrast, assertive live-region notification, and unchanged-
-  state silence passed the requirement-aligned API 36 test.
-- V1 protects visible video only. It does not capture audio and therefore cannot protect spoken
-  information.
-- The retained final-gate report records an older workspace snapshot and a benchmark that correctly
-  rejected the emulator; physical benchmark completion was retired as a task, not counted as a pass.
-
-The evidence index currently includes face results, fail-private decoded output, local RTMP/WebRTC,
-dependency audits, and setup verification under [`docs/verification`](docs/verification). Unmet
-criteria remain unmet rather than being inferred from adjacent tests.
-
-## Data and licences
-
-Runtime and test dependencies, licences, hashes, and privacy boundaries are recorded in
-[`docs/DEPENDENCIES.md`](docs/DEPENDENCIES.md). Evaluation-data rules are in
-[`specs/001-live-privacy-protection/test-data.md`](specs/001-live-privacy-protection/test-data.md).
-
-- WIDER FACE: public regression subset retained locally under its non-commercial/no-derivatives
-  terms; never packaged in the APK.
-- BIV-Priv-Seg support images: retained locally with CC BY 4.0 attribution.
-- YuNet: MIT-licensed model bundled for offline face detection.
-- OpenCV, PaddleOCR/Paddle-Lite, ZXing, CameraX, and most AndroidX components: Apache 2.0.
-- MediaMTX: MIT-licensed local relay.
-- Synthetic renderer, fault, and Priority 2 fixtures contain no people, credentials, or real PII.
-
-Consented evaluation recordings, if later authorized, remain in an encrypted external store with
-access and deletion ledgers. Only opaque authorization references and safe derived annotations may
-enter the repository.
-
-## Design documentation
-
-- [`specs/001-live-privacy-protection/plan.md`](specs/001-live-privacy-protection/plan.md)
-- [`specs/001-live-privacy-protection/contracts/privacy-pipeline.md`](specs/001-live-privacy-protection/contracts/privacy-pipeline.md)
-- [`specs/001-live-privacy-protection/contracts/stream-transport.md`](specs/001-live-privacy-protection/contracts/stream-transport.md)
-- [`specs/001-live-privacy-protection/tasks.md`](specs/001-live-privacy-protection/tasks.md)

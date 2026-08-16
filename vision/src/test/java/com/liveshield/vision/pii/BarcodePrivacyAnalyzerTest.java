@@ -79,7 +79,7 @@ public final class BarcodePrivacyAnalyzerTest {
         DetectorSnapshot snapshot = future.get();
 
         assertEquals(1, snapshot.findings().size());
-        assertBounds(snapshot.findings().get(0).bounds().get(0), 0.0, 0.30, 1.0, 1.0);
+        assertBounds(snapshot.findings().get(0).bounds().get(0), 0.30, 0.70, 0.90, 1.0);
     }
 
     @Test

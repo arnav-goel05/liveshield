@@ -117,7 +117,7 @@ public final class DelayedAccessUnitQueueTest {
         assertEquals(DelayedAccessUnitQueue.OfferResult.ACCEPTED,
                 queue.offer(freshKeyFrame));
         assertEquals(DelayedAccessUnitQueue.State.BUFFERING, queue.state());
-        assertEquals(freshConfiguration, queue.pollReady(2_000_010_000L).orElseThrow());
+        assertEquals(freshConfiguration, queue.pollReady(2_000_012_000L).orElseThrow());
         assertEquals(freshKeyFrame, queue.pollReady(2_000_012_000L).orElseThrow());
         assertEquals(Optional.empty(), queue.pollReady(Long.MAX_VALUE));
     }
@@ -177,7 +177,7 @@ public final class DelayedAccessUnitQueueTest {
         EncodedAccessUnit replacementKey = keyFrame(22L, 10);
         assertEquals(DelayedAccessUnitQueue.OfferResult.ACCEPTED,
                 queue.offer(replacementKey));
-        assertEquals(replacement, queue.pollReady(2_000_020_000L).orElseThrow());
+        assertEquals(replacement, queue.pollReady(2_000_022_000L).orElseThrow());
         assertEquals(replacementKey, queue.pollReady(2_000_022_000L).orElseThrow());
     }
 
@@ -224,12 +224,15 @@ public final class DelayedAccessUnitQueueTest {
         assertThrows(IllegalArgumentException.class, () -> queue.pollReady(-1L));
 
         assertEquals(
+                DelayedAccessUnitQueue.OfferResult.ACCEPTED,
+                queue.offer(configuration(0L, 1)));
+        assertEquals(
                 DelayedAccessUnitQueue.OfferResult.OVERFLOW_STOP_REQUIRED,
-                queue.offer(configuration(Long.MAX_VALUE, 1)));
+                queue.offer(keyFrame(Long.MAX_VALUE, 2)));
         assertFailedAndEmpty(queue);
         assertEquals(
                 DelayedAccessUnitQueue.OfferResult.STOPPED,
-                queue.offer(configuration(0L, 2)));
+                queue.offer(configuration(0L, 3)));
         assertEquals(DelayedAccessUnitQueue.State.FAILED, queue.state());
     }
 
