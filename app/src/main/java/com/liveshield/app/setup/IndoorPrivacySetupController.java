@@ -42,6 +42,11 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
         return normalizedTerms.remove(normalizeWatchlistTerm(term));
     }
 
+    /** Removes every private word when its rendered mask is explicitly dismissed. */
+    public synchronized void clearWatchlistTerms() {
+        normalizedTerms.clear();
+    }
+
     /** Stages a complete output-space zone and atomically makes policy use fail closed. */
     public synchronized void addPrivacyZone(NormalizedRect zone) {
         requireUsableZone(zone);

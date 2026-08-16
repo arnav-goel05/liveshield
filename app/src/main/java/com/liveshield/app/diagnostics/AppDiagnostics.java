@@ -52,6 +52,19 @@ public final class AppDiagnostics {
                 + " width=" + width + " height=" + height);
     }
 
+    public static void pixelBounds(
+            Event event, long id, int left, int top, int right, int bottom) {
+        if (!BuildConfig.DEBUG) {
+            return;
+        }
+        writeInfo("event=" + Objects.requireNonNull(event, "event").name()
+                + " id=" + id
+                + " left_px=" + left
+                + " top_px=" + top
+                + " right_px=" + right
+                + " bottom_px=" + bottom);
+    }
+
     public static void stateCount(Event event, Enum<?> state, int count) {
         if (!BuildConfig.DEBUG) {
             return;
@@ -125,6 +138,10 @@ public final class AppDiagnostics {
         FACE_OVERLAY_BOUNDS,
         FACE_REGION_TAP_HIT,
         FACE_REGION_TAP_MISS,
+        PRIVACY_MASK_TAP_HIT,
+        PRIVACY_MASK_TAP_MISS,
+        PRIVACY_MASK_TAP_POINT,
+        PRIVACY_MASK_HIT_BOUNDS,
         HOST_SELECTED,
         HOST_DESELECTED,
         PRIVACY_ZONE_EDIT_REJECTED,

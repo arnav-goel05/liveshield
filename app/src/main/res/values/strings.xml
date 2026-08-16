@@ -27,8 +27,8 @@
     <string name="setup_scope_notice">For a controlled indoor space. Review the protected preview before starting.</string>
     <string name="sanitized_preview_description">Sanitized camera preview area</string>
     <string name="sanitized_preview_waiting">Your raw camera stays hidden until protected output is ready.</string>
-    <string name="face_selection_overlay_description">Tap a fresh black face mask to toggle session-host selection</string>
-    <string name="face_selection_overlay_selected_description">Your face is selected. Tap its preview region again to deselect it.</string>
+    <string name="face_selection_overlay_description">Tap a face mask to select it. Tap a QR mask to turn QR protection off. Tap a private-word mask to remove all private words.</string>
+    <string name="face_selection_overlay_selected_description">Your face is selected. Tap it again to deselect. You can also tap QR or private-word masks to remove their protection.</string>
     <string name="host_selection_instruction">Tap your fresh black face mask to select or deselect the session host. LiveShield does not identify people or transfer permission automatically.</string>
     <string name="start_protected_live">Start protected LIVE</string>
 

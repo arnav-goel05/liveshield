@@ -24,6 +24,17 @@ public final class IndoorPrivacySetupControllerTest {
     }
 
     @Test
+    public void clearingRenderedPrivateWordMaskRemovesAllSessionTerms() {
+        IndoorPrivacySetupController controller = new IndoorPrivacySetupController();
+        controller.addWatchlistTerm("samsung");
+        controller.addWatchlistTerm("private name");
+
+        controller.clearWatchlistTerms();
+
+        assertTrue(controller.snapshot().normalizedWatchlistTerms().isEmpty());
+    }
+
+    @Test
     public void barcodeProtectionDefaultsOnTogglesImmediatelyAndResetsWithSession() {
         IndoorPrivacySetupController controller = new IndoorPrivacySetupController();
 

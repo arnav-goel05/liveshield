@@ -1,8 +1,10 @@
 package com.liveshield.app.session;
 
 import com.liveshield.app.diagnostics.AppDiagnostics;
+import com.liveshield.app.setup.DismissiblePrivacyMask;
 import com.liveshield.app.setup.SelectableFace;
 import com.liveshield.app.setup.SetupView;
+import com.liveshield.privacy.model.NormalizedRect;
 import com.liveshield.video.geometry.FrameTransform;
 import com.liveshield.video.render.GlRedactionRenderer;
 import java.util.ArrayList;
@@ -58,6 +60,34 @@ final class OutputMappedSetupView implements SetupView {
             return;
         }
         delegate.showSelectableFaces(List.copyOf(mapped), selectedTrack);
+    }
+
+    @Override
+    public void showDismissiblePrivacyMasks(List<DismissiblePrivacyMask> masks) {
+        Objects.requireNonNull(masks, "masks");
+        FrameTransform current = transform.get();
+        if (current == null) {
+            delegate.showDismissiblePrivacyMasks(List.of());
+            return;
+        }
+        ArrayList<DismissiblePrivacyMask> mapped = new ArrayList<>(masks.size());
+        try {
+            for (DismissiblePrivacyMask mask : masks) {
+                NormalizedRect output = current.mapSensorRectToOutput(mask.bounds());
+                double padding = GlRedactionRenderer.COMPRESSION_GUARD_PADDING;
+                mapped.add(new DismissiblePrivacyMask(
+                        mask.category(),
+                        new NormalizedRect(
+                                Math.max(0.0, output.left() - padding),
+                                Math.max(0.0, output.top() - padding),
+                                Math.min(1.0, output.right() + padding),
+                                Math.min(1.0, output.bottom() + padding))));
+            }
+        } catch (IllegalArgumentException unsafeTransform) {
+            delegate.showDismissiblePrivacyMasks(List.of());
+            return;
+        }
+        delegate.showDismissiblePrivacyMasks(List.copyOf(mapped));
     }
 
     @Override

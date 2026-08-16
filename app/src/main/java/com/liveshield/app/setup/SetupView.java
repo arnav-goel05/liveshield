@@ -6,6 +6,9 @@ import java.util.List;
 public interface SetupView {
     void showSelectableFaces(List<SelectableFace> faces, Long selectedTrack);
 
+    default void showDismissiblePrivacyMasks(List<DismissiblePrivacyMask> masks) {
+    }
+
     void showPrivacyReady(boolean ready);
 
     default void showHostReselectionRequired(boolean required) {

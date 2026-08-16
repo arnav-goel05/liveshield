@@ -1,6 +1,7 @@
 package com.liveshield.app.session;
 
 import com.liveshield.app.diagnostics.AppDiagnostics;
+import com.liveshield.app.setup.DismissiblePrivacyMask;
 import com.liveshield.app.setup.SelectableFace;
 import com.liveshield.app.setup.SetupUiListener;
 import com.liveshield.app.setup.SetupView;
@@ -12,6 +13,7 @@ import com.liveshield.privacy.model.FaceTrackSnapshot;
 import com.liveshield.privacy.model.DetectorLane;
 import com.liveshield.privacy.model.DetectorSnapshot;
 import com.liveshield.privacy.model.FrameTimestamp;
+import com.liveshield.privacy.model.FindingCategory;
 import com.liveshield.privacy.model.NormalizedPoint;
 import com.liveshield.privacy.model.NormalizedRect;
 import com.liveshield.privacy.session.LiveSession;
@@ -520,6 +522,7 @@ public final class LiveSessionCoordinator
             }
             setComponentReady(LiveSessionStateMachine.RequiredComponent.ANALYSIS, false);
             setupView.showSelectableFaces(List.of(), null);
+            setupView.showDismissiblePrivacyMasks(List.of());
             return;
         }
         synchronized (policyLock) {
@@ -581,6 +584,7 @@ public final class LiveSessionCoordinator
     }
 
     private void applyDecisionState(FramePrivacyDecision decision) {
+        setupView.showDismissiblePrivacyMasks(dismissiblePrivacyMasks(decision));
         setComponentReady(
                 LiveSessionStateMachine.RequiredComponent.ANALYSIS,
                 decision.status() == FramePrivacyDecision.Status.REGIONAL_SAFE);
@@ -730,6 +734,7 @@ public final class LiveSessionCoordinator
         detectorSnapshots.clear();
         decisionStore.clear();
         setupView.showSelectableFaces(List.of(), null);
+        setupView.showDismissiblePrivacyMasks(List.of());
         hostReselection.resetSession();
         setupView.showHostReselectionRequired(false);
         if (cleanupFailure != null) {
@@ -784,6 +789,19 @@ public final class LiveSessionCoordinator
         return tracks.stream().map(track -> new SelectableFace(
                 track.trackId(), track.bounds(),
                 track.confidenceState() == FaceTrackSnapshot.ConfidenceState.FRESH)).toList();
+    }
+
+    private static List<DismissiblePrivacyMask> dismissiblePrivacyMasks(
+            FramePrivacyDecision decision) {
+        if (decision.status() != FramePrivacyDecision.Status.REGIONAL_SAFE) {
+            return List.of();
+        }
+        return decision.regions().stream()
+                .filter(region -> region.category() == FindingCategory.AUTO_BARCODE
+                        || region.category() == FindingCategory.WATCHLIST_MATCH)
+                .flatMap(region -> region.bounds().stream().map(bounds ->
+                        new DismissiblePrivacyMask(region.category(), bounds)))
+                .toList();
     }
 
     private static RuntimeException closeResource(

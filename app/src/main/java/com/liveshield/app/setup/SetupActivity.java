@@ -21,6 +21,7 @@ import com.liveshield.app.session.CameraSessionGraph;
 import com.liveshield.app.diagnostics.AppDiagnostics;
 import com.liveshield.app.session.LiveSessionCoordinator;
 import com.liveshield.app.session.SetupSessionFactory;
+import com.liveshield.privacy.model.FindingCategory;
 import com.liveshield.privacy.policy.SessionPrivacyConfigurationView;
 import com.liveshield.privacy.session.SessionState;
 import com.liveshield.transport.destination.StreamDestination;
@@ -113,6 +114,7 @@ public final class SetupActivity extends FragmentActivity
             bindIndoorPrivacyControls();
 
             faceOverlay.setSelectionListener(trackId -> listener.onHostSelectionRequested(trackId));
+            faceOverlay.setDismissalListener(this::dismissPrivacyMask);
             sanitizedPreviewContainer.setOnClickListener(ignored -> requestCameraPermission());
             setupContent.addOnLayoutChangeListener(
                     (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
@@ -291,6 +293,11 @@ public final class SetupActivity extends FragmentActivity
         renderReadiness();
     }
 
+    @Override
+    public void showDismissiblePrivacyMasks(List<DismissiblePrivacyMask> masks) {
+        faceOverlay.showDismissiblePrivacyMasks(masks);
+    }
+
     /** Applies fail-closed privacy readiness supplied by the later session coordinator. */
     public void showPrivacyReady(boolean ready) {
         readiness = readiness.withPrivacyReady(ready);
@@ -466,6 +473,7 @@ public final class SetupActivity extends FragmentActivity
                     cameraPermissionPort.isGranted(this));
             hostReselectionRequired = false;
             faceOverlay.showFaces(List.of(), null);
+            faceOverlay.showDismissiblePrivacyMasks(List.of());
             faceSelectionStatus.setText(R.string.setup_face_waiting);
             faceSelectionIndicator.setBackgroundResource(R.drawable.ls_status_circle);
             showDestinationRequired();
@@ -613,6 +621,20 @@ public final class SetupActivity extends FragmentActivity
             });
             row.addView(remove);
             watchlistTermsContainer.addView(row);
+        }
+    }
+
+    private void dismissPrivacyMask(FindingCategory category) {
+        if (category == FindingCategory.AUTO_BARCODE) {
+            indoorPrivacySetup.setAutomaticBarcodeProtectionEnabled(false);
+            CheckBox barcodeProtection = findViewById(R.id.cover_qr_codes_toggle);
+            barcodeProtection.setChecked(false);
+            return;
+        }
+        if (category == FindingCategory.WATCHLIST_MATCH) {
+            indoorPrivacySetup.clearWatchlistTerms();
+            privacyConfigurationListener.run();
+            renderWatchlist();
         }
     }
 
