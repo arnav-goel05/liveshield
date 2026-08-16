@@ -89,7 +89,6 @@
         <item quantity="one">%d drawn</item>
         <item quantity="other">%d drawn</item>
     </plurals>
-    <string name="protected_preview">Protected preview</string>
     <string name="add_private_words">Add</string>
     <string name="private_words_explanation">Enter an exact name, phrase, or other text you want covered. Private words stay only in this session.</string>
     <string name="private_word_hint">Private word or phrase</string>

@@ -65,23 +65,6 @@
                         android:textSize="14sp" />
                 </LinearLayout>
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="34dp"
-                    android:layout_gravity="top|start"
-                    android:layout_margin="16dp"
-                    android:background="@drawable/ls_protected_badge_background"
-                    android:drawableStart="@drawable/ic_ls_verified"
-                    android:drawablePadding="5dp"
-                    android:drawableTint="@color/ls_white"
-                    android:gravity="center_vertical"
-                    android:paddingStart="10dp"
-                    android:paddingEnd="12dp"
-                    android:text="@string/protected_preview"
-                    android:textColor="@color/ls_white"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
                 <com.liveshield.app.setup.FaceSelectionOverlayView
                     android:id="@+id/face_selection_overlay"
                     android:layout_width="match_parent"
