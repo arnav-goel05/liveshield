@@ -44,6 +44,8 @@ public final class StreamDestinationFragment extends Fragment {
         EditText secret = view.findViewById(R.id.external_stream_secret);
         TextView eligibility = view.findViewById(R.id.external_stream_eligibility);
         TextView status = view.findViewById(R.id.destination_private_status);
+        TextView headerTitle = view.findViewById(R.id.destination_header_title);
+        TextView headerStatus = view.findViewById(R.id.destination_header_status);
         Button configure = view.findViewById(R.id.configure_stream_destination);
         View details = view.findViewById(R.id.destination_details);
         view.findViewById(R.id.destination_section_header).setOnClickListener(ignored ->
@@ -66,7 +68,8 @@ public final class StreamDestinationFragment extends Fragment {
                     : R.string.destination_status_demo_not_configured);
         });
         configure.setOnClickListener(ignored -> configure(
-                choices.getCheckedRadioButtonId(), endpoint, secret, status));
+                choices.getCheckedRadioButtonId(), endpoint, secret, status,
+                details, headerTitle, headerStatus));
         choices.check(R.id.destination_local_demo);
     }
 
@@ -90,7 +93,10 @@ public final class StreamDestinationFragment extends Fragment {
             int selectedKind,
             EditText endpoint,
             EditText secret,
-            TextView status) {
+            TextView status,
+            View details,
+            TextView headerTitle,
+            TextView headerStatus) {
         StreamDestination destination = null;
         try {
             if (selectedKind == R.id.destination_local_demo) {
@@ -105,6 +111,11 @@ public final class StreamDestinationFragment extends Fragment {
             destination = null;
             secret.getText().clear();
             status.setText(R.string.destination_status_saved_session_only);
+            headerTitle.setText(selectedKind == R.id.destination_tiktok_external
+                    ? R.string.destination_tiktok_live_short
+                    : R.string.destination_local_demo_short);
+            headerStatus.setText(R.string.destination_selected);
+            details.setVisibility(View.GONE);
         } catch (DestinationForm.ValidationException failure) {
             status.setText(failure.error() == DestinationForm.ValidationError.SECRET_REQUIRED
                     ? R.string.destination_status_secret_required
@@ -124,6 +135,10 @@ public final class StreamDestinationFragment extends Fragment {
         }
         ((TextView) current.findViewById(R.id.destination_private_status))
                 .setText(R.string.destination_status_not_configured);
+        ((TextView) current.findViewById(R.id.destination_header_title))
+                .setText(R.string.destination_title);
+        ((TextView) current.findViewById(R.id.destination_header_status))
+                .setText(R.string.destination_choose);
     }
 
     /** Confirms that the serialized publication port accepted session ownership. */
@@ -134,5 +149,7 @@ public final class StreamDestinationFragment extends Fragment {
         }
         ((TextView) current.findViewById(R.id.destination_private_status))
                 .setText(R.string.destination_status_configured_session_only);
+        ((TextView) current.findViewById(R.id.destination_header_status))
+                .setText(R.string.destination_selected);
     }
 }

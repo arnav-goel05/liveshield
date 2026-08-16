@@ -45,6 +45,7 @@
     <string name="face_selection_overlay_selected_description">Your face is selected. Tap it again to deselect. You can also tap QR or private-word masks to remove their protection.</string>
     <string name="host_selection_instruction">Tap your fresh black face mask to select or deselect the session host. LiveShield does not identify people or transfer permission automatically.</string>
     <string name="start_protected_live">Start protected LIVE</string>
+    <string name="start_protected_live_accessibility_status">%1$s. %2$s</string>
 
     <string name="privacy_status_label">Private protection status</string>
     <string name="privacy_status_not_ready">Not ready — select the host and review protection before starting.</string>
@@ -63,17 +64,32 @@
     <string name="privacy_placeholder_message">Camera hidden for privacy</string>
     <string name="privacy_limit_notice">Visual protection reduces exposure but does not guarantee anonymity.</string>
     <string name="video_only_notice">Video only — LiveShield does not capture microphone audio.</string>
-    <string name="indoor_privacy_setup_title">Prepare your protection</string>
-    <string name="setup_select_face">Select your face</string>
+    <string name="indoor_privacy_setup_title">Choose your protection</string>
+    <string name="setup_select_face">Face</string>
     <string name="setup_face_waiting">Tap preview</string>
     <string name="setup_face_selected">Selected</string>
-    <string name="setup_draw_zones">Draw privacy zones</string>
+    <string name="setup_draw_zones">Privacy zones</string>
     <string name="setup_review_helper">You can review everything before going live.</string>
     <string name="privacy_zone_explanation">Draw directly on the sanitized preview. Fixed zones protect the full selected area. Reconfirm after a camera alignment change before starting.</string>
     <string name="privacy_zone_canvas_description">Private fixed-zone drawing layer over the sanitized preview</string>
     <string name="draw_privacy_zone">Draw on preview</string>
     <string name="cover_qr_codes">Cover QR codes</string>
-    <string name="setup_private_words">Add private words</string>
+    <string name="setup_qr_codes">QR codes</string>
+    <string name="setup_qr_on">On</string>
+    <string name="setup_qr_off">Off</string>
+    <string name="setup_private_words">Private words</string>
+    <string name="setup_add">Add</string>
+    <string name="setup_draw">Draw</string>
+    <string name="setup_drawing">Drawing</string>
+    <plurals name="setup_private_word_count">
+        <item quantity="one">%d added</item>
+        <item quantity="other">%d added</item>
+    </plurals>
+    <plurals name="setup_privacy_zone_count">
+        <item quantity="one">%d drawn</item>
+        <item quantity="other">%d drawn</item>
+    </plurals>
+    <string name="protected_preview">Protected preview</string>
     <string name="add_private_words">Add</string>
     <string name="private_words_explanation">Enter an exact name, phrase, or other text you want covered. Private words stay only in this session.</string>
     <string name="private_word_hint">Private word or phrase</string>
@@ -102,6 +118,10 @@
     <string name="privacy_zone_status_limit">The session limit is 8 non-overlapping fixed zones.</string>
     <string name="confirm_privacy_zones">Confirm zones against current sanitized preview</string>
     <string name="destination_title">Choose destination</string>
+    <string name="destination_choose">Choose</string>
+    <string name="destination_selected">Selected</string>
+    <string name="destination_local_demo_short">Local demo</string>
+    <string name="destination_tiktok_live_short">TikTok LIVE</string>
     <string name="destination_video_only_explanation">LiveShield publishes sanitized video only and never microphone audio. It cannot intercept or replace the camera inside the normal TikTok app.</string>
     <string name="destination_local_demo">Local RTMP relay (not TikTok LIVE)</string>
     <string name="destination_tiktok_external">TikTok external broadcast</string>

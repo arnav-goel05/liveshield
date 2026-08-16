@@ -11,7 +11,9 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 import androidx.fragment.app.FragmentActivity;
 import com.liveshield.app.R;
@@ -60,7 +62,7 @@ public final class SetupActivity extends FragmentActivity
     private View setupContent;
     private View scopeDisclosureContainer;
     private FaceSelectionOverlayView faceOverlay;
-    private View faceSelectionIndicator;
+    private ImageView faceSelectionIndicator;
     private TextView faceSelectionStatus;
     private TextView permissionStatus;
     private TextView privacyStatus;
@@ -76,9 +78,12 @@ public final class SetupActivity extends FragmentActivity
     private LinearLayout watchlistDetails;
     private LinearLayout watchlistTermsContainer;
     private TextView watchlistStatus;
-    private View watchlistIndicator;
+    private ImageView watchlistIndicator;
+    private TextView watchlistSummary;
     private PrivacyZoneEditorView zoneEditor;
-    private View privacyZoneIndicator;
+    private ImageView privacyZoneIndicator;
+    private TextView privacyZoneSummary;
+    private TextView qrProtectionStatus;
     private boolean cameraTransformValidated;
     private FrameTransform privacyZoneTransform;
     private Runnable privacyConfigurationListener = () -> { };
@@ -96,6 +101,7 @@ public final class SetupActivity extends FragmentActivity
             applySystemBarInsets(setupContent);
             applySystemBarInsets(scopeDisclosureContainer);
             sanitizedPreviewContainer = findViewById(R.id.sanitized_preview_container);
+            sanitizedPreviewContainer.setClipToOutline(true);
             faceOverlay = findViewById(R.id.face_selection_overlay);
             faceSelectionIndicator = findViewById(R.id.face_selection_indicator);
             faceSelectionStatus = findViewById(R.id.face_selection_status);
@@ -103,6 +109,9 @@ public final class SetupActivity extends FragmentActivity
             privacyStatus = findViewById(R.id.privacy_readiness_status);
             startButton = findViewById(R.id.start_protected_live);
             bindIndoorPrivacyControls();
+
+            findViewById(R.id.face_selection_row).setOnClickListener(
+                    ignored -> ((ScrollView) setupContent).smoothScrollTo(0, 0));
 
             faceOverlay.setSelectionListener(trackId -> listener.onHostSelectionRequested(trackId));
             faceOverlay.setDismissalListener(this::dismissPrivacyMask);
@@ -269,8 +278,7 @@ public final class SetupActivity extends FragmentActivity
         faceOverlay.showFaces(faces, selectedFresh ? selectedTrack : null);
         faceSelectionStatus.setText(selectedFresh
                 ? R.string.setup_face_selected : R.string.setup_face_waiting);
-        faceSelectionIndicator.setBackgroundResource(selectedFresh
-                ? R.drawable.ls_status_circle_selected : R.drawable.ls_status_circle);
+        showFeatureSelected(faceSelectionIndicator, selectedFresh);
         renderReadiness();
     }
 
@@ -294,7 +302,7 @@ public final class SetupActivity extends FragmentActivity
                     .withFreshHostSelection(false)
                     .withPrivacyReady(false);
             faceSelectionStatus.setText(R.string.setup_face_waiting);
-            faceSelectionIndicator.setBackgroundResource(R.drawable.ls_status_circle);
+            showFeatureSelected(faceSelectionIndicator, false);
         }
         renderReadiness();
     }
@@ -456,7 +464,7 @@ public final class SetupActivity extends FragmentActivity
             faceOverlay.showFaces(List.of(), null);
             faceOverlay.showDismissiblePrivacyMasks(List.of());
             faceSelectionStatus.setText(R.string.setup_face_waiting);
-            faceSelectionIndicator.setBackgroundResource(R.drawable.ls_status_circle);
+            showFeatureSelected(faceSelectionIndicator, false);
             showDestinationRequired();
             showSessionRetryAvailable();
             renderReadiness();
@@ -525,6 +533,7 @@ public final class SetupActivity extends FragmentActivity
         watchlistTermsContainer = findViewById(R.id.watchlist_terms_container);
         watchlistStatus = findViewById(R.id.watchlist_status);
         watchlistIndicator = findViewById(R.id.watchlist_indicator);
+        watchlistSummary = findViewById(R.id.watchlist_summary);
         findViewById(R.id.toggle_watchlist_details).setOnClickListener(ignored -> {
             boolean show = watchlistDetails.getVisibility() != View.VISIBLE;
             watchlistDetails.setVisibility(show ? View.VISIBLE : View.GONE);
@@ -536,13 +545,21 @@ public final class SetupActivity extends FragmentActivity
                 ignored -> addWatchlistTerm());
         zoneEditor = findViewById(R.id.privacy_zone_editor_overlay);
         privacyZoneIndicator = findViewById(R.id.privacy_zone_indicator);
+        privacyZoneSummary = findViewById(R.id.privacy_zone_summary);
         findViewById(R.id.toggle_zone_drawing).setOnClickListener(this::toggleZoneDrawing);
         zoneEditor.setZoneDrawListener(this::addDrawnZone);
         zoneEditor.setZoneRemoveListener(this::removeZone);
         CheckBox barcodeProtection = findViewById(R.id.cover_qr_codes_toggle);
+        qrProtectionStatus = findViewById(R.id.qr_protection_status);
         barcodeProtection.setChecked(indoorPrivacySetup.automaticBarcodeProtectionEnabled());
-        barcodeProtection.setOnCheckedChangeListener((ignored, enabled) ->
-                indoorPrivacySetup.setAutomaticBarcodeProtectionEnabled(enabled));
+        barcodeProtection.setOnCheckedChangeListener((ignored, enabled) -> {
+            indoorPrivacySetup.setAutomaticBarcodeProtectionEnabled(enabled);
+            qrProtectionStatus.setText(enabled ? R.string.setup_qr_on : R.string.setup_qr_off);
+        });
+        findViewById(R.id.qr_protection_row).setOnClickListener(
+                ignored -> barcodeProtection.setChecked(!barcodeProtection.isChecked()));
+        qrProtectionStatus.setText(barcodeProtection.isChecked()
+                ? R.string.setup_qr_on : R.string.setup_qr_off);
         renderWatchlist();
         renderZoneEditor();
     }
@@ -573,9 +590,11 @@ public final class SetupActivity extends FragmentActivity
     }
 
     private void renderWatchlistIndicator() {
-        boolean configured = !indoorPrivacySetup.snapshot().normalizedWatchlistTerms().isEmpty();
-        watchlistIndicator.setBackgroundResource(configured
-                ? R.drawable.ls_status_circle_selected : R.drawable.ls_status_circle);
+        int count = indoorPrivacySetup.snapshot().normalizedWatchlistTerms().size();
+        showFeatureSelected(watchlistIndicator, count > 0);
+        watchlistSummary.setText(count == 0
+                ? getString(R.string.setup_add)
+                : getResources().getQuantityString(R.plurals.setup_private_word_count, count, count));
     }
 
     private void renderWatchlistRows() {
@@ -619,13 +638,11 @@ public final class SetupActivity extends FragmentActivity
         }
     }
 
-    private void toggleZoneDrawing(View buttonView) {
+    private void toggleZoneDrawing(View ignored) {
         boolean drawing = zoneEditor.getVisibility() != View.VISIBLE;
         zoneEditor.setVisibility(drawing ? View.VISIBLE : View.GONE);
         faceOverlay.setEnabled(!drawing && readiness.cameraPermissionGranted());
-        ((Button) buttonView).setText(drawing
-                ? R.string.finish_drawing_privacy_zone
-                : R.string.draw_privacy_zone);
+        renderZoneSummary();
     }
 
     private void addDrawnZone(com.liveshield.privacy.model.NormalizedRect zone) {
@@ -696,10 +713,26 @@ public final class SetupActivity extends FragmentActivity
                 indoorPrivacySetup.configuredPrivacyZones();
         zoneEditor.showZones(zones);
         IndoorPrivacySetupController.Configuration snapshot = indoorPrivacySetup.snapshot();
-        privacyZoneIndicator.setBackgroundResource(
-                !zones.isEmpty() && snapshot.zonesSafelyTransformed()
-                        ? R.drawable.ls_status_circle_selected
-                        : R.drawable.ls_status_circle);
+        showFeatureSelected(
+                privacyZoneIndicator,
+                !zones.isEmpty() && snapshot.zonesSafelyTransformed());
+        renderZoneSummary();
+    }
+
+    private void renderZoneSummary() {
+        int count = indoorPrivacySetup.configuredPrivacyZones().size();
+        if (zoneEditor.getVisibility() == View.VISIBLE) {
+            privacyZoneSummary.setText(R.string.setup_drawing);
+        } else if (count == 0) {
+            privacyZoneSummary.setText(R.string.setup_draw);
+        } else {
+            privacyZoneSummary.setText(getResources().getQuantityString(
+                    R.plurals.setup_privacy_zone_count, count, count));
+        }
+    }
+
+    private static void showFeatureSelected(ImageView indicator, boolean selected) {
+        indicator.setImageResource(selected ? R.drawable.ic_ls_verified : 0);
     }
 
     private void renderReadiness() {
@@ -720,6 +753,10 @@ public final class SetupActivity extends FragmentActivity
         } else {
             privacyStatus.setText(R.string.privacy_status_ready);
         }
+        startButton.setContentDescription(getString(
+                R.string.start_protected_live_accessibility_status,
+                getString(R.string.start_protected_live),
+                privacyStatus.getText()));
     }
 
     boolean hasSessionCoordinatorForTest() {

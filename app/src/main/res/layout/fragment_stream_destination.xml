@@ -2,6 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@drawable/ls_setup_group_background"
     android:importantForAutofill="noExcludeDescendants"
     android:orientation="vertical"
     android:saveEnabled="false">
@@ -9,22 +10,27 @@
     <LinearLayout
         android:id="@+id/destination_section_header"
         android:layout_width="match_parent"
-        android:layout_height="68dp"
+        android:layout_height="56dp"
         android:clickable="true"
         android:focusable="true"
         android:foreground="?android:attr/selectableItemBackground"
         android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="horizontal"
+        android:paddingStart="14dp"
+        android:paddingEnd="14dp">
 
         <ImageView
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:background="@drawable/ls_qr_indicator_background"
             android:contentDescription="@null"
             android:importantForAccessibility="no"
-            android:src="@drawable/ic_ls_expand_more"
+            android:padding="7dp"
+            android:src="@drawable/ic_ls_camera"
             android:tint="@color/ls_ink" />
 
         <TextView
+            android:id="@+id/destination_header_title"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
@@ -33,9 +39,19 @@
             android:textColor="@color/ls_ink"
             android:textSize="16sp" />
 
+        <TextView
+            android:id="@+id/destination_header_status"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/destination_choose"
+            android:textColor="@color/ls_teal_dark"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
         <ImageView
-            android:layout_width="24dp"
-            android:layout_height="24dp"
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_marginStart="8dp"
             android:contentDescription="@null"
             android:importantForAccessibility="no"
             android:src="@drawable/ic_ls_chevron_right"
@@ -48,7 +64,7 @@
         android:layout_height="wrap_content"
         android:background="@color/ls_teal_pale"
         android:orientation="vertical"
-        android:padding="14dp"
+        android:padding="16dp"
         android:visibility="gone">
 
         <TextView
@@ -131,10 +147,10 @@
 
         <Button
             android:id="@+id/configure_stream_destination"
-            style="@style/LiveShieldTextButton"
+            style="@style/LiveShieldPrimaryButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="8dp"
             android:text="@string/destination_configure" />
     </LinearLayout>
 </LinearLayout>

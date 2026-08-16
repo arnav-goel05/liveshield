@@ -14,5 +14,9 @@
     <color name="ls_warning_pale">#FFFFF0EC</color>
     <color name="ls_outline">#FFC4C9CE</color>
     <color name="ls_carousel_dot_inactive">#FFC8CDD2</color>
+    <color name="ls_face_pastel">#FFEBCBFF</color>
+    <color name="ls_qr_pastel">#FFC8F2EE</color>
+    <color name="ls_text_pastel">#FFFFE39A</color>
+    <color name="ls_zone_pastel">#FFFFC5BE</color>
 
 </resources>

@@ -2,7 +2,7 @@ package com.liveshield.app.setup;
 
 /** Pure viewport sizing for the scrollable setup screen. */
 final class SetupViewportLayout {
-    private static final float PREVIEW_HEIGHT_FRACTION = 0.75F;
+    private static final float PREVIEW_HEIGHT_FRACTION = 0.48F;
 
     private SetupViewportLayout() {
     }

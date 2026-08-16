@@ -15,8 +15,8 @@ import org.junit.Test;
 public final class SetupViewportLayoutTest {
     @Test
     public void previewUsesThreeQuartersOfTheAvailableViewport() {
-        assertEquals(750, SetupViewportLayout.previewHeight(1000));
-        assertEquals(600, SetupViewportLayout.previewHeight(800));
+        assertEquals(480, SetupViewportLayout.previewHeight(1000));
+        assertEquals(384, SetupViewportLayout.previewHeight(800));
         assertEquals(0, SetupViewportLayout.previewHeight(0));
     }
 

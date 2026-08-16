@@ -1,67 +1,81 @@
-# LiveShield setup redesign — design QA
+# LiveShield protected setup — design QA
 
 ## Comparison target
 
-- Source visual truth: `/Users/arnav/.codex/attachments/4032923f-1085-4180-9bd5-778b0a6c1c3f/image-1.png`
-- Source pixels: 1726 × 911. The concept board contains two 863 × 911 screen panels.
-- Implementation screenshots:
-  - `/Users/arnav/Documents/ChatGPT/Java Project for Resume/app/build/reports/design-qa/disclosure-api36.png`
-  - `/Users/arnav/Documents/ChatGPT/Java Project for Resume/app/build/reports/design-qa/setup-api36.png`
-- Full comparison board: `/Users/arnav/Documents/ChatGPT/Java Project for Resume/app/build/reports/design-qa/source-vs-api36.png`
-- Expanded destination evidence: `/Users/arnav/Documents/ChatGPT/Java Project for Resume/app/build/reports/design-qa/destination-expanded-api36.png`
-- Native viewport: Android API 36 ARM64 emulator, 1080 × 2400 physical pixels at 420 dpi.
-- Density normalization: Android system bars were cropped for visual comparison, leaving 1080 × 2148 app-content pixels. Each source panel and implementation capture was proportionally scaled to 540 pixels wide without stretching. The concept board is not a phone-aspect viewport, so vertical length is intentionally preserved rather than forced to the board's aspect ratio. CSS size and browser device-scale factor are not applicable to this native Android implementation.
-- States: disclosure before acknowledgement; setup immediately after acknowledgement with camera permission denied; destination expanded with TikTok external mode selected.
+- Source visual truth: `/Users/arnav/.codex/generated_images/019ff627-d6a2-7df3-bac7-02dbdeb5541d/exec-16e255ba-a8a1-4fdb-818f-33a8c2425c46.png`
+- Implementation screenshot: `/Users/arnav/Documents/ChatGPT/Java Project for Resume/app/build/reports/design-qa/setup-redesign-api36.png`
+- Full comparison evidence: `/Users/arnav/Documents/ChatGPT/Java Project for Resume/app/build/reports/design-qa/source-vs-setup-redesign-api36.png`
+- Focused controls comparison: `/Users/arnav/Documents/ChatGPT/Java Project for Resume/app/build/reports/design-qa/source-vs-setup-controls-api36.png`
+- Earlier implementation evidence: `/Users/arnav/Documents/ChatGPT/Java Project for Resume/app/build/reports/design-qa/setup-redesign-iteration1-api36.png`
+- Source pixels: 853 × 1844.
+- Implementation pixels: 1080 × 2400 on the Android API 36 ARM64 emulator at 420 dpi. CSS size and browser device-scale factor do not apply to this native Android screen.
+- Density normalization: the implementation was proportionally scaled to 830 × 1844 and placed beside the unchanged 853 × 1844 source. Android-owned status/navigation chrome was retained but excluded from visual findings.
+- State: the source illustrates a fully configured session. The implementation deliberately shows the truthful live initial state: camera running, QR protection on, no selected face, no private words, no zones, no destination, and Start disabled. State-dependent labels and button color are therefore expected differences rather than design drift.
 
 ## Findings
 
 No actionable P0, P1, or P2 visual differences remain.
 
-- [P3] The native Android `sans` optical metrics are slightly heavier than the unidentified sans-serif used by the concept mockup.
-  - Location: hero title and section headings on both screens.
-  - Evidence: the comparison board shows the same hierarchy and wrapping, with slightly heavier native glyph forms.
-  - Impact: minor platform-native rendering difference only; readability and hierarchy remain intact.
-  - Follow-up: retain the system font unless a licensed source font is supplied.
+- [P3] The emulator's synthetic camera scene is visually unlike the aspirational room scene in the mockup.
+  - Location: protected preview.
+  - Evidence: the source uses a staged creator scene; the implementation displays the emulator's real CameraX feed through the sanitized renderer.
+  - Impact: none on layout fidelity or product behavior.
+  - Follow-up: judge subject matter on a physical camera; do not replace the real preview with a decorative image.
+- [P3] The unconfigured destination uses a generic camera icon rather than TikTok branding.
+  - Location: destination card.
+  - Evidence: the source is already configured for TikTok; the implementation truthfully says “Choose destination.”
+  - Impact: no functional loss. Once external broadcast is configured, the title becomes “TikTok LIVE” and the status becomes “Selected.”
+  - Follow-up: use an approved official TikTok asset only if brand approval and redistribution rights are supplied.
 
 ## Required fidelity surfaces
 
-- Fonts and typography: native Android sans is used consistently; weights, sizes, line wrapping, and hierarchy match the source intent. No clipping, truncation, or unintended wrapping is visible.
-- Spacing and layout rhythm: the reference's white canvas, large hero, three-step disclosure, warning card, full-width CTA, preview card, compact setup rows, and bottom readiness state are preserved. The Android screen is taller than the two-up concept panel, so it has expected additional vertical room.
-- Colors and visual tokens: white, ink, slate, teal, pale teal, coral warning, dividers, and disabled grey states visually match the source and pass the existing contrast assertions.
-- Image quality and asset fidelity: the existing LiveShield shield and official Google Material Symbols vector paths are rendered sharply. No emoji, placeholder glyphs, handmade visible SVG approximations, or raster stretching are used.
-- Copy and content: the visible disclosure and setup copy matches the selected design, including the anonymity warning, camera privacy explanation, protection rows, destination row, and readiness state.
+- Fonts and typography: native Android sans preserves the mockup's bold section heading, regular row labels, compact teal statuses, wrapping, and optical hierarchy. No visible clipping or truncation remains.
+- Spacing and layout rhythm: the sanitized preview fills the app-owned top area beneath the Android status bar. The title, rounded four-row card, separate destination card, and primary action follow the source order and fit in the initial viewport. Row height, indicator scale, dividers, corner radii, and horizontal margins were tightened after the first pass.
+- Colors and visual tokens: white, near-black ink, teal, pale aqua, lavender, yellow, coral, divider grey, and disabled grey map directly to the reference. Contrast remains clear in both enabled and disabled states.
+- Image quality and asset fidelity: the hero is the actual sanitized camera surface, not a placeholder raster. Existing LiveShield and Material-style vector assets remain sharp at device density. The emulator camera's black side bars are the real aspect-fit output and preserve coordinate-safe mask mapping.
+- Copy and content: the section and row copy matches the source. Dynamic counts and states are truthful: `Add`, `Draw`, `On/Off`, selected face, word count, zone count, destination type, and destination selection status.
+- Icons: face, QR, private words, privacy zone, destination, verified badge, checks, and chevrons share consistent sizing, tint, and alignment.
+- Accessibility and responsiveness: each row is at least a 56 dp tap target, the preview and overlays retain their production accessibility descriptions, the real QR checkbox remains semantic, and the hidden visual readiness message is appended to the Start button's accessibility description.
 
-## Full-view and focused evidence
+## Full-view and focused comparison evidence
 
-The full-view comparison board was inspected for composition, hierarchy, density, color, copy, and state. Separate focused crops were not required because both the source and implementation remain legible at the comparison board's 540-pixel panel width; the original 1080-pixel Android captures were additionally inspected for icon sharpness, text wrapping, row alignment, and system-bar clearance.
+The combined full-view image was inspected for preview proportion, section hierarchy, card placement, action visibility, typography, palette, and overall density. The focused controls comparison was separately inspected because row icons, indicator scale, text alignment, dividers, statuses, and the destination card were too small to judge precisely from the full view alone.
 
-## Interaction and implementation checks
+## Interaction and implementation verification
 
-- Disclosure acknowledgement reveals setup.
-- Private-word controls remain disclosure-gated and session-only.
-- Draw-on-preview privacy zones remain available without the removed four-number editor.
-- Destination expands and reveals local/TikTok choices; a manual API 36 swipe verified the external eligibility notice and masked endpoint/key inputs.
-- Camera permission remains denied during visual capture, so no camera, microphone, or network work is needed to render the selected state.
-- Android logcat contained no app fatal exception, ANR, or native signal during the final visual capture.
-- App JVM tests: 73 passed, 0 failed, 0 skipped.
-- Debug/release Java compilation, Android-test compilation/package, Checkstyle, and debug/release lint passed.
-- Focused device tests: 6 of 7 passed. The destination test was updated to use the same expand/select/swipe gesture that was manually verified. Its final cold-boot rerun was blocked before interaction because an Android System UI ANR owned window focus (`mCurrentFocus=Application Not Responding: com.android.systemui`), not because the LiveShield view failed. No app fatal, ANR, or native signal was observed.
+- The protected preview is the existing sanitized CameraX/rendering surface; face and privacy-zone overlays remain attached above it.
+- Tapping the face row returns to the live preview for face selection.
+- Tapping the QR row changed the production session flag from `On` to `Off`; a second tap restored `On`.
+- Tapping Private words revealed the real session-only input and Add control.
+- Tapping Privacy zones enabled the actual draw overlay and changed the row state to `Drawing`.
+- Tapping the destination card revealed the existing local relay and TikTok external broadcast forms.
+- Start remains connected to `LiveSessionCoordinator` and disabled until the real readiness contract is satisfied.
+- No app FATAL, ANR, or assertion failure appeared during the final visual pass. The emulator emitted only its known `mapper.ranchu` unsupported-metadata diagnostics.
+- App JVM tests, debug assembly, debug/release Java compilation, Android-test compilation, Checkstyle, and debug/release lint passed.
 
 ## Comparison history
 
 ### Pass 1 — blocked
 
-- [P1] Android status-bar content overlapped the disclosure logo and setup header.
-- Fix: added API-23-safe system-bar inset handling to both activity states and requested fresh insets when the previously hidden setup screen becomes visible. API-specific light navigation-bar styling was moved to `values-v27`.
+- [P1] The retained 75% preview height made the protection controls excessively far below the camera and did not match the selected mockup after its empty top region was assigned to the preview.
+- [P2] The four protection rows, pastel indicators, destination row, badge, and Start button were materially oversized relative to the reference.
+- [P2] The protected-preview shield inherited a dark tint rather than the source's white icon.
+
+Fixes:
+
+- Sized the real preview to 48% of the usable viewport, filling the source's former top whitespace while retaining a scrollable screen.
+- Reduced option rows to 56 dp, indicators to 34 dp, icons to 24 dp, the destination row to 56 dp, and the Start action to 52 dp.
+- Applied a white badge drawable tint and tightened badge typography and padding.
+- Removed the separate visible readiness block from the composition while preserving its current message in the Start button's accessibility description.
 
 ### Pass 2 — passed
 
-- Post-fix evidence: `disclosure-api36.png`, `setup-api36.png`, and `source-vs-api36.png` show both screens clear of system chrome with no remaining P0/P1/P2 mismatch.
-- Primary target interactions and the expanded destination state were verified on API 36.
+- Post-fix evidence: `setup-redesign-api36.png`, `source-vs-setup-redesign-api36.png`, and `source-vs-setup-controls-api36.png`.
+- All app-owned content is visible in the initial viewport, the top is occupied by the live protected preview, and no actionable P0/P1/P2 mismatch remains.
 
 ## Follow-up polish
 
-- If the exact source typeface becomes available with redistribution rights, it can replace the native sans family for closer optical matching.
+- Re-capture the same screen on the connected physical phone for a more representative camera subject; this is not required for layout acceptance.
 
 ## Final result
 
