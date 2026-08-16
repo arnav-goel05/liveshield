@@ -7,16 +7,30 @@ import java.util.Objects;
 
 /** Converts private setup controls into a session-only destination without String secret input. */
 final class DestinationForm {
+    /** Android Emulator host alias; this is not a usable relay address on physical devices. */
     static final URI LOCAL_DEMO_ENDPOINT = URI.create("rtmp://10.0.2.2:1935/liveshield");
 
     private DestinationForm() {
     }
 
     static StreamDestination localDemo() {
+        return localDemo(LOCAL_DEMO_ENDPOINT);
+    }
+
+    static StreamDestination localDemo(String endpoint) {
+        try {
+            return localDemo(URI.create(Objects.requireNonNull(endpoint, "endpoint").trim()));
+        } catch (IllegalArgumentException | NullPointerException failure) {
+            throw new ValidationException(ValidationError.ENDPOINT_INVALID);
+        }
+    }
+
+    /** Builds a controlled demo destination supplied by a trusted runtime/UI configuration. */
+    static StreamDestination localDemo(URI relayEndpoint) {
         return StreamDestination.sessionScoped(
                 StreamDestination.Kind.LOCAL_DEMO,
                 "Controlled MediaMTX demonstration",
-                LOCAL_DEMO_ENDPOINT,
+                Objects.requireNonNull(relayEndpoint, "relayEndpoint"),
                 new char[0]);
     }
 

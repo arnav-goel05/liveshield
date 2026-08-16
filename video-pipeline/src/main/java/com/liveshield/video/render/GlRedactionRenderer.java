@@ -10,6 +10,7 @@ import android.opengl.EGLSurface;
 import android.opengl.GLES20;
 import android.opengl.GLUtils;
 import com.liveshield.privacy.decision.FramePrivacyDecision;
+import com.liveshield.privacy.model.FindingCategory;
 import com.liveshield.privacy.model.NormalizedRect;
 import com.liveshield.privacy.model.ProtectedRegion;
 import com.liveshield.video.diagnostics.VideoDiagnostics;
@@ -127,11 +128,13 @@ public final class GlRedactionRenderer {
                             VideoDiagnostics.Event.MASK_OUTPUT_BOUNDS,
                             region.category(),
                             output.left(), output.top(), output.right(), output.bottom());
+                    double padding = region.category() == FindingCategory.PRIVACY_ZONE
+                            ? 0.0 : COMPRESSION_GUARD_PADDING;
                     result.add(new NormalizedRect(
-                            Math.max(0.0, output.left() - COMPRESSION_GUARD_PADDING),
-                            Math.max(0.0, output.top() - COMPRESSION_GUARD_PADDING),
-                            Math.min(1.0, output.right() + COMPRESSION_GUARD_PADDING),
-                            Math.min(1.0, output.bottom() + COMPRESSION_GUARD_PADDING)));
+                            Math.max(0.0, output.left() - padding),
+                            Math.max(0.0, output.top() - padding),
+                            Math.min(1.0, output.right() + padding),
+                            Math.min(1.0, output.bottom() + padding)));
                     if (result.size() > MAX_PROTECTED_BOUNDS) {
                         return null;
                     }

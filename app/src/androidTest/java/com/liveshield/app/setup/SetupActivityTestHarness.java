@@ -8,6 +8,7 @@ import static org.junit.Assert.assertTrue;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** Payload-free bridge to SetupActivity's package-private instrumentation seam. */
 public final class SetupActivityTestHarness {
@@ -29,6 +30,13 @@ public final class SetupActivityTestHarness {
     }
 
     public static void installCameraPermission(SetupActivity activity, boolean granted) {
+        installCameraPermission(activity, granted, null);
+    }
+
+    public static void installCameraPermission(
+            SetupActivity activity,
+            boolean granted,
+            AtomicInteger requestCount) {
         activity.installCameraPermissionPortForTest(new SetupActivity.CameraPermissionPort() {
             @Override
             public boolean isGranted(SetupActivity ignored) {
@@ -37,7 +45,9 @@ public final class SetupActivityTestHarness {
 
             @Override
             public void request(SetupActivity ignored, int requestCode) {
-                // Deterministic test permission never invokes a system dialog.
+                if (requestCount != null) {
+                    requestCount.incrementAndGet();
+                }
             }
         });
     }

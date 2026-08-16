@@ -59,6 +59,13 @@ public final class IndoorPrivacySetupControllerTest {
 
         assertEquals(
                 List.of(rect(0.1, 0.1, 0.7, 0.6)),
+                controller.configuredPrivacyZones());
+        assertFalse(controller.snapshot().zonesSafelyTransformed());
+        assertTrue(controller.snapshot().activePrivacyZones().isEmpty());
+
+        controller.applySafelyTransformedZones(
+                List.of(rect(0.1, 0.1, 0.7, 0.6)));
+        assertEquals(List.of(rect(0.1, 0.1, 0.7, 0.6)),
                 controller.snapshot().activePrivacyZones());
     }
 
@@ -95,19 +102,30 @@ public final class IndoorPrivacySetupControllerTest {
     }
 
     @Test
-    public void zonesCanBeReplacedAndRemovedWithoutLeavingStaleActiveGeometry() {
+    public void zoneEditsRemainUnsafeUntilCompleteTransformedGeometryIsApplied() {
         IndoorPrivacySetupController controller = new IndoorPrivacySetupController();
         NormalizedRect first = rect(0.1, 0.1, 0.3, 0.3);
         NormalizedRect second = rect(0.6, 0.6, 0.9, 0.9);
         NormalizedRect replacement = rect(0.2, 0.2, 0.5, 0.5);
         controller.addPrivacyZone(first);
         controller.addPrivacyZone(second);
+        controller.applySafelyTransformedZones(List.of(first, second));
 
         controller.replacePrivacyZone(0, replacement);
         assertEquals(List.of(replacement, second), controller.configuredPrivacyZones());
+        assertFalse(controller.snapshot().zonesSafelyTransformed());
+        assertEquals(List.of(first, second), controller.snapshot().activePrivacyZones());
+
+        controller.applySafelyTransformedZones(List.of(replacement, second));
 
         controller.removePrivacyZone(1);
         assertEquals(List.of(replacement), controller.configuredPrivacyZones());
+        assertFalse(controller.snapshot().zonesSafelyTransformed());
+        assertEquals(List.of(replacement, second),
+                controller.snapshot().activePrivacyZones());
+
+        controller.applySafelyTransformedZones(List.of(replacement));
+        assertTrue(controller.snapshot().zonesSafelyTransformed());
         assertEquals(List.of(replacement), controller.snapshot().activePrivacyZones());
         assertThrows(IndexOutOfBoundsException.class,
                 () -> controller.removePrivacyZone(1));
@@ -117,7 +135,9 @@ public final class IndoorPrivacySetupControllerTest {
     public void snapshotsAreImmutableDetachedAndDoNotStringifyPrivateTerms() {
         IndoorPrivacySetupController controller = new IndoorPrivacySetupController();
         controller.addWatchlistTerm("Private Employer");
-        controller.addPrivacyZone(rect(0.1, 0.2, 0.4, 0.6));
+        NormalizedRect first = rect(0.1, 0.2, 0.4, 0.6);
+        controller.addPrivacyZone(first);
+        controller.applySafelyTransformedZones(List.of(first));
         IndoorPrivacySetupController.Configuration snapshot = controller.snapshot();
 
         controller.addWatchlistTerm("School");

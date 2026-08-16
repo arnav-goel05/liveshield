@@ -99,9 +99,17 @@ public final class StreamSessionController implements EncodedAccessUnitSink {
     @Override
     public synchronized void onAccessUnit(EncodedAccessUnit accessUnit) {
         ensureActive();
-        recordOffered(Objects.requireNonNull(accessUnit, "accessUnit"));
-        DelayedAccessUnitQueue.OfferResult result = queue.offer(
-                accessUnit);
+        EncodedAccessUnit unit = Objects.requireNonNull(accessUnit, "accessUnit");
+        // Release elapsed units before applying the two-second duration bound to the new unit.
+        // Otherwise a normally timed frame just beyond the boundary could falsely overflow a
+        // queue whose head is already eligible for publication.
+        drainReadyUnits();
+        if (state == State.FAILED) {
+            notifyHealth();
+            return;
+        }
+        recordOffered(unit);
+        DelayedAccessUnitQueue.OfferResult result = queue.offer(unit);
         switch (result) {
             case ACCEPTED -> drainReadyUnits();
             case DROPPED_AWAITING_CONFIGURATION, DROPPED_AWAITING_KEY_FRAME -> droppedUnits++;
@@ -270,6 +278,17 @@ public final class StreamSessionController implements EncodedAccessUnitSink {
         notifyHealth();
     }
 
+    /** Reconnects after the RTMP client has already reported an unexpected disconnect. */
+    private void reconnectAfterPublisherDisconnect() {
+        state = State.RECONNECTING;
+        failureCode = FailureCode.NETWORK_DISCONNECTED;
+        resetPublicationEpoch();
+        queue.beginReconnect();
+        requestIdr();
+        connectPublisher();
+        notifyHealth();
+    }
+
     private void connectPublisher() {
         try {
             if (state != State.RECONNECTING) {
@@ -343,7 +362,14 @@ public final class StreamSessionController implements EncodedAccessUnitSink {
             return;
         }
         if (failure != RtmpStreamPublisher.FailureCode.NONE) {
-            fail(mapFailure(failure), false);
+            if (failure == RtmpStreamPublisher.FailureCode.DISCONNECTED
+                    && state == State.PUBLISHING) {
+                reconnectAfterPublisherDisconnect();
+            } else {
+                // Initial connection/authentication failures are terminal. Retrying them without
+                // fresh user credentials would be misleading and could create an unbounded loop.
+                fail(mapFailure(failure), false);
+            }
             return;
         }
         if (connectionState == RtmpStreamPublisher.ConnectionState.CONNECTED

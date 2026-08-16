@@ -377,13 +377,29 @@ public final class LiveSessionCoordinator
 
     /** Transfers session-scoped destination ownership without exposing it through health/UI. */
     public void configurePublication(StreamDestination destination) {
+        configurePublication(destination, configured -> { });
+    }
+
+    /** Reports acceptance only after the serialized publication port owns the destination. */
+    public void configurePublication(
+            StreamDestination destination,
+            DestinationConfigurationListener configurationListener) {
         Objects.requireNonNull(destination, "destination");
+        Objects.requireNonNull(configurationListener, "configurationListener");
         dispatch(() -> {
             if (closed) {
                 destination.close();
+                configurationListener.onConfigured(false);
                 return;
             }
-            publication.configure(destination);
+            boolean configured;
+            try {
+                publication.configure(destination);
+                configured = publication.isConfigured();
+            } catch (RuntimeException failure) {
+                configured = false;
+            }
+            configurationListener.onConfigured(configured);
         });
     }
 
@@ -451,6 +467,8 @@ public final class LiveSessionCoordinator
 
     public void onPublisherCongestion() {
         dispatch(() -> {
+            // This hook is deliberately inert unless a caller supplies a real congestion signal.
+            // Production currently receives network disconnects directly from the RTMP client.
             if (!closed && stateMachine.snapshot().state() == SessionState.LIVE) {
                 publication.onCongestion();
                 applyPublisherHealth(publication.health());
@@ -981,5 +999,10 @@ public final class LiveSessionCoordinator
     @FunctionalInterface
     public interface ReadinessProbe {
         CameraSessionGraph.ReadinessSnapshot snapshot();
+    }
+
+    @FunctionalInterface
+    public interface DestinationConfigurationListener {
+        void onConfigured(boolean configured);
     }
 }

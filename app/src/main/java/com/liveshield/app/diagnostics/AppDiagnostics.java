@@ -127,6 +127,7 @@ public final class AppDiagnostics {
         FACE_REGION_TAP_MISS,
         HOST_SELECTED,
         HOST_DESELECTED,
+        PRIVACY_ZONE_EDIT_REJECTED,
         ANALYSIS_RESOLUTION,
         ANALYSIS_SENSOR_TO_BUFFER,
         DECISION_BASIS,

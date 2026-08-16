@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ls_white">#FFFFFFFF</color>
+    <color name="ls_ink">#FF111827</color>
+    <color name="ls_slate">#FF5D6875</color>
+    <color name="ls_muted">#FF8A939D</color>
+    <color name="ls_teal">#FF00877F</color>
+    <color name="ls_teal_dark">#FF006E68</color>
+    <color name="ls_teal_pale">#FFEAF8F6</color>
+    <color name="ls_divider">#FFE1E5E8</color>
+    <color name="ls_disabled">#FFE7E9EB</color>
+    <color name="ls_disabled_text">#FF969CA3</color>
+    <color name="ls_warning">#FFB52D1C</color>
+    <color name="ls_warning_pale">#FFFFF0EC</color>
+    <color name="ls_outline">#FFC4C9CE</color>
+
+</resources>

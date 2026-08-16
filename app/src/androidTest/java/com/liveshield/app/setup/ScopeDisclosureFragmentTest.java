@@ -28,12 +28,13 @@ public final class ScopeDisclosureFragmentTest {
                 assertFalse(activity.isScopeDisclosureAcceptedForTest());
                 assertFalse(activity.hasSessionCoordinatorForTest());
                 assertTrue(activity.findViewById(R.id.setup_content).getVisibility() == View.GONE);
+                SetupActivityTestHarness.installCameraPermission(activity, false);
             });
 
             onView(withId(R.id.scope_disclosure_title)).check(matches(isDisplayed()));
             onView(withId(R.id.scope_disclosure_visual_only)).check(matches(isDisplayed()));
-            onView(withId(R.id.scope_disclosure_no_anonymity)).check(matches(isDisplayed()));
             onView(withId(R.id.scope_disclosure_unsupported)).check(matches(isDisplayed()));
+            onView(withId(R.id.scope_disclosure_review)).check(matches(isDisplayed()));
             onView(withId(R.id.setup_content)).check(matches(not(isDisplayed())));
 
             onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());

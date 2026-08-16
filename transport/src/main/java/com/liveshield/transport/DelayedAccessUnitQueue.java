@@ -84,7 +84,19 @@ public final class DelayedAccessUnitQueue {
             return Optional.empty();
         }
         QueuedUnit first = units.peekFirst();
-        if (nowNanos < first.releaseAtNanos()) {
+        long releaseAtNanos = first.releaseAtNanos();
+        if (isConfiguration(first.unit())) {
+            java.util.Iterator<QueuedUnit> iterator = units.iterator();
+            iterator.next();
+            if (!iterator.hasNext()) {
+                return Optional.empty();
+            }
+            // Codec configuration has no meaningful media timestamp. Release it immediately
+            // before the first delayed key frame instead of treating its conventional PTS=0 as
+            // part of the buffered media duration.
+            releaseAtNanos = iterator.next().releaseAtNanos();
+        }
+        if (nowNanos < releaseAtNanos) {
             return Optional.empty();
         }
         units.removeFirst();
@@ -123,33 +135,45 @@ public final class DelayedAccessUnitQueue {
     }
 
     private boolean appendWithinBounds(EncodedAccessUnit unit) {
+        boolean configuration = isConfiguration(unit);
         long candidateBytes;
         try {
             candidateBytes = Math.addExact(queuedBytes, unit.size());
         } catch (ArithmeticException overflow) {
             return false;
         }
-        long candidateFirst = units.isEmpty()
-                ? unit.presentationTimeUs() : firstPresentationTimeUs;
-        long candidateDuration = unit.presentationTimeUs() - candidateFirst;
+        long candidateFirst = configuration
+                ? firstPresentationTimeUs
+                : firstPresentationTimeUs < 0L
+                        ? unit.presentationTimeUs() : firstPresentationTimeUs;
+        long candidateDuration = configuration
+                ? 0L : unit.presentationTimeUs() - candidateFirst;
         if (candidateBytes > maxBytes
                 || candidateDuration < 0L
                 || candidateDuration > MAX_QUEUE_DURATION_US) {
             return false;
         }
-        long releaseAtNanos;
-        try {
-            releaseAtNanos = Math.addExact(
-                    Math.multiplyExact(unit.presentationTimeUs(), NANOS_PER_MICROSECOND),
-                    VIDEO_DELAY_NANOS);
-        } catch (ArithmeticException overflow) {
-            return false;
+        long releaseAtNanos = Long.MAX_VALUE;
+        if (!configuration) {
+            try {
+                releaseAtNanos = Math.addExact(
+                        Math.multiplyExact(unit.presentationTimeUs(), NANOS_PER_MICROSECOND),
+                        VIDEO_DELAY_NANOS);
+            } catch (ArithmeticException overflow) {
+                return false;
+            }
         }
         units.addLast(new QueuedUnit(unit, releaseAtNanos));
         queuedBytes = candidateBytes;
-        firstPresentationTimeUs = candidateFirst;
-        lastPresentationTimeUs = unit.presentationTimeUs();
+        if (!configuration) {
+            firstPresentationTimeUs = candidateFirst;
+            lastPresentationTimeUs = unit.presentationTimeUs();
+        }
         return true;
+    }
+
+    private static boolean isConfiguration(EncodedAccessUnit unit) {
+        return unit.flags().contains(EncodedAccessUnit.Flag.CODEC_CONFIGURATION);
     }
 
     private OfferResult fail(OfferResult result) {

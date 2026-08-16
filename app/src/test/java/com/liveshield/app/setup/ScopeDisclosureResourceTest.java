@@ -13,19 +13,22 @@ import org.junit.Test;
 /** Static release-boundary checks for the pre-session disclosure resource. */
 public final class ScopeDisclosureResourceTest {
     @Test
-    public void disclosureNamesEveryScopeBoundaryBeforeAcknowledgement() throws IOException {
+    public void disclosureUsesPlainCreatorFriendlyLanguageBeforeSetup() throws IOException {
         String layout = readProjectFile("src/main/res/layout/fragment_scope_disclosure.xml");
         String strings = readProjectFile("src/main/res/values/strings.xml");
 
         assertTrue(layout.contains("@string/scope_disclosure_supported"));
         assertTrue(layout.contains("@string/scope_disclosure_visual_only"));
-        assertTrue(layout.contains("@string/scope_disclosure_no_anonymity"));
         assertTrue(layout.contains("@string/scope_disclosure_unsupported"));
+        assertTrue(layout.contains("@string/scope_review_detail"));
         assertTrue(layout.contains("@string/acknowledge_scope_disclosure"));
-        assertTrue(strings.contains("controlled indoor space"));
-        assertTrue(strings.contains("captures no microphone audio"));
-        assertTrue(strings.contains("does not guarantee anonymity"));
-        assertTrue(strings.contains("public venues, moving outdoor scenes, or dense crowds"));
+        assertTrue(strings.contains("Your microphone always stays off."));
+        assertTrue(strings.contains("Best for solo indoor streams"));
+        assertTrue(strings.contains("Check your preview before going live"));
+        assertTrue(strings.contains("Continue to setup"));
+        assertTrue(strings.contains("name=\"scope_video_title\">Video only</string>"));
+        assertFalse(layout.contains("scope_disclosure_no_anonymity"));
+        assertFalse(strings.contains("Not a guarantee of anonymity"));
     }
 
     @Test

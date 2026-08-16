@@ -4,6 +4,7 @@ import static androidx.test.espresso.Espresso.onView;
 import static androidx.test.espresso.action.ViewActions.click;
 import static androidx.test.espresso.action.ViewActions.replaceText;
 import static androidx.test.espresso.action.ViewActions.scrollTo;
+import static androidx.test.espresso.action.ViewActions.swipeUp;
 import static androidx.test.espresso.assertion.ViewAssertions.doesNotExist;
 import static androidx.test.espresso.assertion.ViewAssertions.matches;
 import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
@@ -35,9 +36,12 @@ public final class StreamDestinationFragmentTest {
     public void disclosureGatesDestinationAndDemoIsExplicitlyNotTikTok() {
         try (ActivityScenario<SetupActivity> scenario =
                      ActivityScenario.launch(SetupActivity.class)) {
+            scenario.onActivity(activity ->
+                    SetupActivityTestHarness.installCameraPermission(activity, false));
             onView(withId(R.id.destination_kind)).check(doesNotExist());
             onView(withText(R.string.scope_disclosure_visual_only)).check(matches(isDisplayed()));
             onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());
+            onView(withId(R.id.destination_section_header)).perform(scrollTo(), click());
 
             onView(withText(R.string.destination_local_demo))
                     .perform(scrollTo())
@@ -57,12 +61,13 @@ public final class StreamDestinationFragmentTest {
     public void externalSecretIsMaskedNotSavedAndClearedAfterSessionOnlyHandoff() {
         try (ActivityScenario<SetupActivity> scenario =
                      ActivityScenario.launch(SetupActivity.class)) {
-            onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());
-            onView(withId(R.id.destination_tiktok_external)).perform(scrollTo());
             scenario.onActivity(activity ->
-                    activity.findViewById(R.id.destination_tiktok_external).performClick());
+                    SetupActivityTestHarness.installCameraPermission(activity, false));
+            onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());
+            onView(withId(R.id.destination_section_header)).perform(scrollTo(), click());
+            onView(withId(R.id.destination_tiktok_external)).perform(scrollTo(), click());
+            onView(withId(R.id.setup_content)).perform(swipeUp());
             onView(withText(R.string.destination_tiktok_eligibility))
-                    .perform(scrollTo())
                     .check(matches(isDisplayed()));
             onView(withId(R.id.external_stream_endpoint))
                     .perform(scrollTo(), replaceText("rtmps://live.example.invalid/app"));
@@ -85,7 +90,7 @@ public final class StreamDestinationFragmentTest {
                     .perform(scrollTo())
                     .check(matches(withText("")));
             onView(withId(R.id.destination_private_status)).check(matches(
-                    withText(R.string.destination_status_configured_session_only)));
+                    withText(R.string.destination_status_saved_session_only)));
             scenario.recreate();
             scenario.onActivity(activity -> assertNull(activity.streamDestinationForTest()));
             onView(withId(R.id.external_stream_secret))

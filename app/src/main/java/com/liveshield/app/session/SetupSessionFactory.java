@@ -12,12 +12,16 @@ import com.liveshield.privacy.host.DefaultHostSelectionController;
 import com.liveshield.privacy.host.HostSelectionController;
 import com.liveshield.privacy.model.CoordinateTransform;
 import com.liveshield.privacy.model.DetectorLane;
+import com.liveshield.privacy.model.DetectorSnapshot;
+import com.liveshield.privacy.model.FrameTimestamp;
 import com.liveshield.privacy.model.NormalizedRect;
+import com.liveshield.privacy.model.TypedFailure;
 import com.liveshield.privacy.policy.DefaultPrivacyPolicyEngine;
 import com.liveshield.privacy.policy.PrivacyPolicyConfiguration;
 import com.liveshield.privacy.policy.PriorityTwoPolicy;
 import com.liveshield.privacy.policy.PriorityTwoPrivacyPolicyEngine;
 import com.liveshield.privacy.policy.SensitiveFindingPolicy;
+import com.liveshield.privacy.session.SessionState;
 import com.liveshield.privacy.session.LiveSession;
 import com.liveshield.privacy.session.LiveSessionStateMachine;
 import com.liveshield.privacy.session.SessionHealth;
@@ -30,7 +34,6 @@ import com.liveshield.video.output.SanitizedVideoOutput;
 import com.liveshield.video.render.PrivacySurfaceProcessor;
 import com.liveshield.vision.face.OfflineFaceAnalyzer;
 import com.liveshield.vision.pii.OfflineBarcodeAnalyzer;
-import com.liveshield.vision.pii.OfflineTextAnalyzer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -50,8 +53,22 @@ public final class SetupSessionFactory {
     }
 
     public static PendingCreation create(SetupActivity activity, CreationListener listener) {
+        return create(activity, listener, TerminalListener.NO_OP);
+    }
+
+    /**
+     * Creates one session graph and reports its terminal state without exposing media or secrets.
+     *
+     * <p>The terminal callback is intended for the setup owner to release its coordinator
+     * reference and create a fresh graph for a later session.</p>
+     */
+    public static PendingCreation create(
+            SetupActivity activity,
+            CreationListener listener,
+            TerminalListener terminalListener) {
         Objects.requireNonNull(activity, "activity");
         Objects.requireNonNull(listener, "listener");
+        Objects.requireNonNull(terminalListener, "terminalListener");
         AtomicBoolean cancelled = new AtomicBoolean();
         AppDiagnostics.info(AppDiagnostics.Event.SESSION_FACTORY_REQUESTED);
         ListenableFuture<ProcessCameraProvider> future = ProcessCameraProvider.getInstance(activity);
@@ -62,7 +79,8 @@ public final class SetupSessionFactory {
             }
             try {
                 AppDiagnostics.info(AppDiagnostics.Event.CAMERA_PROVIDER_READY);
-                listener.onCreated(compose(activity, future.get(), mainExecutor));
+                listener.onCreated(compose(
+                        activity, future.get(), mainExecutor, terminalListener));
             } catch (Exception exception) {
                 AppDiagnostics.failure(AppDiagnostics.Event.SESSION_FACTORY_FAILED, exception);
                 listener.onFailure(exception);
@@ -74,13 +92,15 @@ public final class SetupSessionFactory {
     private static LiveSessionCoordinator compose(
             SetupActivity activity,
             ProcessCameraProvider provider,
-            Executor mainExecutor) {
+            Executor mainExecutor,
+            TerminalListener terminalListener) {
         ExecutorService renderExecutor = singleThread("LiveShield-Privacy-Render");
         ExecutorService analysisExecutor = singleThread("LiveShield-Face-Analysis");
         try {
             AppDiagnostics.info(AppDiagnostics.Event.SESSION_GRAPH_COMPOSE_STARTED);
             return composeGraph(
-                    activity, provider, mainExecutor, renderExecutor, analysisExecutor);
+                    activity, provider, mainExecutor, renderExecutor, analysisExecutor,
+                    terminalListener);
         } catch (RuntimeException exception) {
             analysisExecutor.shutdown();
             renderExecutor.shutdown();
@@ -93,7 +113,8 @@ public final class SetupSessionFactory {
             ProcessCameraProvider provider,
             Executor mainExecutor,
             ExecutorService renderExecutor,
-            ExecutorService analysisExecutor) {
+            ExecutorService analysisExecutor,
+            TerminalListener terminalListener) {
         List<AutoCloseable> constructed = new ArrayList<>();
         try {
         FrameDecisionStore decisions = new BoundedFrameDecisionStore(
@@ -116,11 +137,11 @@ public final class SetupSessionFactory {
                         LiveSessionStateMachine.RequiredComponent.RENDERER, failure),
                 readiness -> withCoordinator(coordinatorRef,
                         coordinator -> coordinator.onRendererReadiness(readiness)),
-                transform -> {
+                transform -> mainExecutor.execute(() -> {
                     previewTransform.set(transform);
                     activity.acceptVerifiedPrivacyZoneTransform(transform);
                     transformReady.set(true);
-                },
+                }),
                 timestamp -> {
                     LiveSessionCoordinator coordinator = coordinatorRef.get();
                     if (coordinator == null) {
@@ -158,12 +179,6 @@ public final class SetupSessionFactory {
         constructed.add(output);
         OfflineFaceAnalyzer faceAnalyzer = new OfflineFaceAnalyzer(activity);
         constructed.add(faceAnalyzer);
-        OfflineTextAnalyzer textAnalyzer = new OfflineTextAnalyzer(
-                activity,
-                OfflineTextAnalyzer.Configuration.defaults(
-                        activity.sessionPrivacyConfiguration().normalizedWatchlistTerms()));
-        activity.setPrivacyConfigurationListener(textAnalyzer::updateNormalizedWatchlistTerms);
-        constructed.add(textAnalyzer);
         OfflineBarcodeAnalyzer barcodeAnalyzer = new OfflineBarcodeAnalyzer();
         constructed.add(barcodeAnalyzer);
         PriorityTwoPrivacyPolicyEngine policy = priorityTwoPolicy();
@@ -174,7 +189,7 @@ public final class SetupSessionFactory {
                 VisionScheduler.Configuration.defaults().withEnabledLanes(
                         Set.of(DetectorLane.FACE, DetectorLane.BARCODE)),
                 new VisionAnalyzerLaneAdapter(faceAnalyzer, Runnable::run),
-                new VisionAnalyzerLaneAdapter(textAnalyzer, Runnable::run),
+                SetupSessionFactory::rejectUnsupportedTextLane,
                 new VisionAnalyzerLaneAdapter(barcodeAnalyzer, Runnable::run),
                 snapshot -> {
                     if (snapshot.failure().isPresent()) {
@@ -245,10 +260,8 @@ public final class SetupSessionFactory {
                     renderExecutor.shutdown();
                 },
                 () -> {
-                    activity.setPrivacyConfigurationListener(null);
                     analyzer.close();
                     faceAnalyzer.close();
-                    textAnalyzer.close();
                     barcodeAnalyzer.close();
                     faces.resetSession();
                     analysisExecutor.shutdown();
@@ -260,14 +273,13 @@ public final class SetupSessionFactory {
                 policy,
                 activity::sessionPrivacyConfiguration,
                 policy::reset,
-                new ProductionLiveSessionUi(activity),
+                new ProductionLiveSessionUi(activity, terminalListener),
                 safetyHealth);
         coordinatorRef.set(coordinator);
         AppDiagnostics.info(AppDiagnostics.Event.SESSION_GRAPH_COMPOSED);
         return coordinator;
         } catch (RuntimeException exception) {
             AppDiagnostics.failure(AppDiagnostics.Event.SESSION_FACTORY_FAILED, exception);
-            activity.setPrivacyConfigurationListener(null);
             for (int index = constructed.size() - 1; index >= 0; index--) {
                 closeQuietly(constructed.get(index));
             }
@@ -288,6 +300,18 @@ public final class SetupSessionFactory {
 
     private static ExecutorService singleThread(String name) {
         return Executors.newSingleThreadExecutor(runnable -> new Thread(runnable, name));
+    }
+
+    /** Fail-closed guard for a production lane that is intentionally absent and disabled. */
+    private static VisionScheduler.Cancellation rejectUnsupportedTextLane(
+            VisionScheduler.FrameLease frame,
+            VisionScheduler.Completion completion) {
+        FrameTimestamp timestamp = frame.timestamp();
+        completion.complete(DetectorSnapshot.failure(
+                DetectorLane.TEXT,
+                timestamp,
+                new TypedFailure(TypedFailure.Code.ANALYZER_ERROR, timestamp)));
+        return VisionScheduler.Cancellation.NONE;
     }
 
     private static PriorityTwoPrivacyPolicyEngine priorityTwoPolicy() {
@@ -342,6 +366,14 @@ public final class SetupSessionFactory {
 
     public interface PendingCreation {
         void cancel();
+    }
+
+    @FunctionalInterface
+    public interface TerminalListener {
+        TerminalListener NO_OP = finalState -> { };
+
+        /** Receives only ENDED or FAILED after all session-owned resources are closed. */
+        void onTerminated(SessionState finalState);
     }
 
 }

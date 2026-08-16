@@ -34,7 +34,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class AccessibilityTest {
     private static final int WINDOW_BACKGROUND = Color.rgb(11, 15, 18);
-    private static final int DISCLOSURE_BACKGROUND = Color.rgb(16, 24, 32);
+    private static final int DISCLOSURE_BACKGROUND = Color.WHITE;
     private static final int STATUS_CARD_BACKGROUND = Color.rgb(16, 20, 24);
     private static final double NORMAL_TEXT_CONTRAST = 4.5;
 
@@ -59,12 +59,12 @@ public final class AccessibilityTest {
                         R.id.scope_disclosure_title);
                 assertTraversalAfter(root, R.id.scope_disclosure_visual_only,
                         R.id.scope_disclosure_supported);
-                assertTraversalAfter(root, R.id.scope_disclosure_no_anonymity,
-                        R.id.scope_disclosure_visual_only);
                 assertTraversalAfter(root, R.id.scope_disclosure_unsupported,
-                        R.id.scope_disclosure_no_anonymity);
-                assertTraversalAfter(root, R.id.acknowledge_scope_disclosure,
+                        R.id.scope_disclosure_visual_only);
+                assertTraversalAfter(root, R.id.scope_disclosure_review,
                         R.id.scope_disclosure_unsupported);
+                assertTraversalAfter(root, R.id.acknowledge_scope_disclosure,
+                        R.id.scope_disclosure_review);
                 assertEquals("Acknowledgement must follow all explanatory text",
                         acknowledgement, lastFocusable(root));
             });
@@ -217,7 +217,9 @@ public final class AccessibilityTest {
         if (view.getVisibility() != View.VISIBLE) {
             return;
         }
-        if (view instanceof TextView text && !(view instanceof Button)) {
+        if (view instanceof TextView text
+                && !(view instanceof Button)
+                && view.getImportantForAccessibility() != View.IMPORTANT_FOR_ACCESSIBILITY_NO) {
             result.add(text);
         }
         if (view instanceof ViewGroup group) {

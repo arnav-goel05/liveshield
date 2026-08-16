@@ -8,9 +8,18 @@ import java.util.Objects;
 /** Launches private status controls while leaving all protected media in the session owner. */
 final class ProductionLiveSessionUi implements LiveSessionCoordinator.SessionUiPort {
     private final SetupActivity setupActivity;
+    private final SetupSessionFactory.TerminalListener terminalListener;
+    private boolean terminalDelivered;
 
     ProductionLiveSessionUi(SetupActivity setupActivity) {
+        this(setupActivity, SetupSessionFactory.TerminalListener.NO_OP);
+    }
+
+    ProductionLiveSessionUi(
+            SetupActivity setupActivity,
+            SetupSessionFactory.TerminalListener terminalListener) {
         this.setupActivity = Objects.requireNonNull(setupActivity, "setupActivity");
+        this.terminalListener = Objects.requireNonNull(terminalListener, "terminalListener");
     }
 
     @Override
@@ -22,6 +31,11 @@ final class ProductionLiveSessionUi implements LiveSessionCoordinator.SessionUiP
     @Override
     public void onSessionStateChanged(SessionState state) {
         LiveSessionUiRegistry.update(state);
+        if (!terminalDelivered
+                && (state == SessionState.ENDED || state == SessionState.FAILED)) {
+            terminalDelivered = true;
+            terminalListener.onTerminated(state);
+        }
     }
 
     @Override

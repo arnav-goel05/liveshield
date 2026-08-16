@@ -5,11 +5,11 @@ import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.os.Trace;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 import android.widget.TextView;
 import androidx.fragment.app.FragmentActivity;
 import com.liveshield.app.BuildConfig;
@@ -19,11 +19,11 @@ import com.liveshield.app.diagnostics.AppDiagnostics;
 import com.liveshield.app.session.LiveSessionCoordinator;
 import com.liveshield.app.session.SetupSessionFactory;
 import com.liveshield.privacy.policy.SessionPrivacyConfigurationView;
+import com.liveshield.privacy.session.SessionState;
 import com.liveshield.transport.destination.StreamDestination;
 import com.liveshield.video.geometry.FrameTransform;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 /** Privacy-gated setup UI. Camera/render/session wiring is supplied later by T038/T042. */
 public final class SetupActivity extends FragmentActivity
@@ -33,6 +33,8 @@ public final class SetupActivity extends FragmentActivity
     private static final int CAMERA_PERMISSION_REQUEST = 1001;
     private static final String SETUP_CREATE_TRACE = "LiveShieldSetupCreate";
     private static final String DISCLOSURE_ACCEPTED_STATE = "scopeDisclosureAccepted";
+    private static final String CAMERA_PERMISSION_REQUESTED_STATE =
+            "cameraPermissionRequested";
     private static final String DISCLOSURE_FRAGMENT_TAG = "scope-disclosure";
     static final String DEBUG_ALLOW_SCREEN_CAPTURE =
             "com.liveshield.app.debug.ALLOW_SCREEN_CAPTURE";
@@ -58,26 +60,22 @@ public final class SetupActivity extends FragmentActivity
     private View setupContent;
     private View scopeDisclosureContainer;
     private FaceSelectionOverlayView faceOverlay;
+    private View faceSelectionIndicator;
+    private TextView faceSelectionStatus;
     private TextView permissionStatus;
     private TextView privacyStatus;
-    private Button permissionButton;
     private Button startButton;
     private LiveSessionCoordinator sessionCoordinator;
     private SetupSessionFactory.PendingCreation pendingCreation;
     private boolean uiContractHarnessInstalledForTest;
     private boolean scopeDisclosureAccepted;
+    private boolean cameraPermissionRequestIssued;
     private CameraPermissionPort cameraPermissionPort = SYSTEM_CAMERA_PERMISSION;
     private StreamDestination streamDestination;
-    private EditText watchlistInput;
-    private LinearLayout watchlistTermsContainer;
-    private TextView watchlistStatus;
     private PrivacyZoneEditorView zoneEditor;
-    private TextView zoneStatus;
-    private Button zoneConfirmButton;
-    private int selectedZoneIndex = -1;
+    private View privacyZoneIndicator;
     private boolean cameraTransformValidated;
     private FrameTransform privacyZoneTransform;
-    private PrivacyConfigurationListener privacyConfigurationListener = ignored -> { };
     private final IndoorPrivacySetupController indoorPrivacySetup =
             new IndoorPrivacySetupController();
 
@@ -94,16 +92,22 @@ public final class SetupActivity extends FragmentActivity
             }
             setupContent = findViewById(R.id.setup_content);
             scopeDisclosureContainer = findViewById(R.id.scope_disclosure_container);
+            applySystemBarInsets(setupContent);
+            applySystemBarInsets(scopeDisclosureContainer);
             sanitizedPreviewContainer = findViewById(R.id.sanitized_preview_container);
             faceOverlay = findViewById(R.id.face_selection_overlay);
+            faceSelectionIndicator = findViewById(R.id.face_selection_indicator);
+            faceSelectionStatus = findViewById(R.id.face_selection_status);
             permissionStatus = findViewById(R.id.camera_permission_status);
             privacyStatus = findViewById(R.id.privacy_readiness_status);
-            permissionButton = findViewById(R.id.request_camera_permission);
             startButton = findViewById(R.id.start_protected_live);
             bindIndoorPrivacyControls();
 
             faceOverlay.setSelectionListener(trackId -> listener.onHostSelectionRequested(trackId));
-            permissionButton.setOnClickListener(ignored -> requestCameraPermission());
+            sanitizedPreviewContainer.setOnClickListener(ignored -> requestCameraPermission());
+            setupContent.addOnLayoutChangeListener(
+                    (view, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) ->
+                            updatePreviewHeight());
             startButton.setOnClickListener(ignored -> {
                 if (readiness.canStart()) {
                     listener.onStartRequested();
@@ -111,9 +115,12 @@ public final class SetupActivity extends FragmentActivity
             });
             scopeDisclosureAccepted = savedInstanceState != null
                     && savedInstanceState.getBoolean(DISCLOSURE_ACCEPTED_STATE, false);
+            cameraPermissionRequestIssued = savedInstanceState != null
+                    && savedInstanceState.getBoolean(
+                            CAMERA_PERMISSION_REQUESTED_STATE, false);
             if (scopeDisclosureAccepted) {
                 showSetupContent();
-                refreshCameraPermission();
+                requestCameraPermissionAutomatically();
             } else {
                 setupContent.setVisibility(View.GONE);
                 scopeDisclosureContainer.setVisibility(View.VISIBLE);
@@ -136,6 +143,42 @@ public final class SetupActivity extends FragmentActivity
         return debugBuild && explicitlyRequested;
     }
 
+    private static void applySystemBarInsets(View view) {
+        int left = view.getPaddingLeft();
+        int top = view.getPaddingTop();
+        int right = view.getPaddingRight();
+        int bottom = view.getPaddingBottom();
+        view.setOnApplyWindowInsetsListener((target, insets) -> {
+            target.setPadding(
+                    left + systemInsetLeft(insets),
+                    top + systemInsetTop(insets),
+                    right + systemInsetRight(insets),
+                    bottom + systemInsetBottom(insets));
+            return insets;
+        });
+        view.requestApplyInsets();
+    }
+
+    @SuppressWarnings("deprecation")
+    private static int systemInsetLeft(WindowInsets insets) {
+        return insets.getSystemWindowInsetLeft();
+    }
+
+    @SuppressWarnings("deprecation")
+    private static int systemInsetTop(WindowInsets insets) {
+        return insets.getSystemWindowInsetTop();
+    }
+
+    @SuppressWarnings("deprecation")
+    private static int systemInsetRight(WindowInsets insets) {
+        return insets.getSystemWindowInsetRight();
+    }
+
+    @SuppressWarnings("deprecation")
+    private static int systemInsetBottom(WindowInsets insets) {
+        return insets.getSystemWindowInsetBottom();
+    }
+
     boolean isDebugScreenCaptureAllowed() {
         return allowDebugScreenCapture(
                 BuildConfig.DEBUG,
@@ -153,6 +196,8 @@ public final class SetupActivity extends FragmentActivity
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putBoolean(DISCLOSURE_ACCEPTED_STATE, scopeDisclosureAccepted);
+        outState.putBoolean(
+                CAMERA_PERMISSION_REQUESTED_STATE, cameraPermissionRequestIssued);
         super.onSaveInstanceState(outState);
     }
 
@@ -163,7 +208,7 @@ public final class SetupActivity extends FragmentActivity
         }
         scopeDisclosureAccepted = true;
         showSetupContent();
-        refreshCameraPermission();
+        requestCameraPermissionAutomatically();
     }
 
     @Override
@@ -174,9 +219,9 @@ public final class SetupActivity extends FragmentActivity
             configured.close();
             throw new IllegalStateException("Scope disclosure must be accepted before destination");
         }
-        readiness = readiness.withDestinationConfigured(true);
+        readiness = readiness.withDestinationConfigured(false);
         if (sessionCoordinator != null) {
-            sessionCoordinator.configurePublication(configured);
+            configurePublication(sessionCoordinator, configured);
         } else {
             if (streamDestination != null) {
                 streamDestination.close();
@@ -217,8 +262,9 @@ public final class SetupActivity extends FragmentActivity
         }
         sessionCoordinator = java.util.Objects.requireNonNull(coordinator, "coordinator");
         if (streamDestination != null) {
-            coordinator.configurePublication(streamDestination);
+            StreamDestination pendingDestination = streamDestination;
             streamDestination = null;
+            configurePublication(coordinator, pendingDestination);
         }
         setSetupUiListener(coordinator);
         coordinator.begin();
@@ -229,6 +275,10 @@ public final class SetupActivity extends FragmentActivity
         boolean selectedFresh = FreshHostSelection.isSelectedAndFresh(faces, selectedTrack);
         readiness = readiness.withFreshHostSelection(selectedFresh);
         faceOverlay.showFaces(faces, selectedFresh ? selectedTrack : null);
+        faceSelectionStatus.setText(selectedFresh
+                ? R.string.setup_face_selected : R.string.setup_face_waiting);
+        faceSelectionIndicator.setBackgroundResource(selectedFresh
+                ? R.drawable.ls_status_circle_selected : R.drawable.ls_status_circle);
         renderReadiness();
     }
 
@@ -246,6 +296,8 @@ public final class SetupActivity extends FragmentActivity
             readiness = readiness
                     .withFreshHostSelection(false)
                     .withPrivacyReady(false);
+            faceSelectionStatus.setText(R.string.setup_face_waiting);
+            faceSelectionIndicator.setBackgroundResource(R.drawable.ls_status_circle);
         }
         renderReadiness();
     }
@@ -266,7 +318,6 @@ public final class SetupActivity extends FragmentActivity
             streamDestination = null;
         }
         indoorPrivacySetup.close();
-        privacyConfigurationListener = ignored -> { };
         cameraPermissionPort = SYSTEM_CAMERA_PERMISSION;
         super.onDestroy();
     }
@@ -290,11 +341,6 @@ public final class SetupActivity extends FragmentActivity
         renderZoneEditor();
     }
 
-    /** Installs a payload-contained observer for updating the in-memory OCR session configuration. */
-    public void setPrivacyConfigurationListener(PrivacyConfigurationListener newListener) {
-        privacyConfigurationListener = newListener == null ? ignored -> { } : newListener;
-    }
-
     IndoorPrivacySetupController privacySetupControllerForTest() {
         return indoorPrivacySetup;
     }
@@ -307,12 +353,20 @@ public final class SetupActivity extends FragmentActivity
             refreshCameraPermission();
             return;
         }
+        cameraPermissionRequestIssued = true;
         cameraPermissionPort.request(this, CAMERA_PERMISSION_REQUEST);
     }
 
-    private void refreshCameraPermission() {
+    private void requestCameraPermissionAutomatically() {
+        boolean granted = refreshCameraPermission();
+        if (!granted && !cameraPermissionRequestIssued) {
+            requestCameraPermission();
+        }
+    }
+
+    private boolean refreshCameraPermission() {
         if (!scopeDisclosureAccepted) {
-            return;
+            return false;
         }
         boolean granted = cameraPermissionPort.isGranted(this);
         AppDiagnostics.info(granted
@@ -323,13 +377,15 @@ public final class SetupActivity extends FragmentActivity
             permissionStatus.setText(granted
                     ? R.string.camera_permission_granted
                     : R.string.camera_permission_denied);
-            permissionButton.setVisibility(granted ? View.GONE : View.VISIBLE);
+            sanitizedPreviewContainer.setClickable(!granted);
+            sanitizedPreviewContainer.setFocusable(!granted);
             faceOverlay.setEnabled(granted);
             renderReadiness();
             if (granted) {
                 ensureSessionCoordinator();
             }
         }
+        return granted;
     }
 
     private void ensureSessionCoordinator() {
@@ -362,13 +418,78 @@ public final class SetupActivity extends FragmentActivity
                             return;
                         }
                         showPrivacyReady(false);
+                        showSessionRetryAvailable();
                     }
-                });
+                }, this::onSessionTerminated);
+    }
+
+    private void configurePublication(
+            LiveSessionCoordinator coordinator,
+            StreamDestination destination) {
+        coordinator.configurePublication(destination, configured -> runOnUiThread(() -> {
+            if (sessionCoordinator != coordinator || isFinishing() || isDestroyed()) {
+                return;
+            }
+            readiness = readiness.withDestinationConfigured(configured);
+            if (configured) {
+                showDestinationConfigured();
+            } else {
+                showDestinationRequired();
+            }
+            renderReadiness();
+        }));
+    }
+
+    private void onSessionTerminated(SessionState finalState) {
+        runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed() || sessionCoordinator == null) {
+                return;
+            }
+            sessionCoordinator = null;
+            listener = SetupUiListener.NO_OP;
+            readiness = SetupReadinessState.initial().withCameraPermission(
+                    cameraPermissionPort.isGranted(this));
+            hostReselectionRequired = false;
+            faceOverlay.showFaces(List.of(), null);
+            faceSelectionStatus.setText(R.string.setup_face_waiting);
+            faceSelectionIndicator.setBackgroundResource(R.drawable.ls_status_circle);
+            showDestinationRequired();
+            showSessionRetryAvailable();
+            renderReadiness();
+        });
+    }
+
+    private void showSessionRetryAvailable() {
+        if (!readiness.cameraPermissionGranted()) {
+            return;
+        }
+        faceOverlay.setEnabled(false);
+        sanitizedPreviewContainer.setClickable(true);
+        sanitizedPreviewContainer.setFocusable(true);
+        permissionStatus.setText(R.string.camera_session_retry);
+    }
+
+    private void showDestinationRequired() {
+        androidx.fragment.app.Fragment fragment = getSupportFragmentManager()
+                .findFragmentByTag("stream-destination");
+        if (fragment instanceof StreamDestinationFragment destinationFragment) {
+            destinationFragment.showDestinationRequired();
+        }
+    }
+
+    private void showDestinationConfigured() {
+        androidx.fragment.app.Fragment fragment = getSupportFragmentManager()
+                .findFragmentByTag("stream-destination");
+        if (fragment instanceof StreamDestinationFragment destinationFragment) {
+            destinationFragment.showDestinationConfigured();
+        }
     }
 
     private void showSetupContent() {
         scopeDisclosureContainer.setVisibility(View.GONE);
         setupContent.setVisibility(View.VISIBLE);
+        setupContent.requestApplyInsets();
+        setupContent.post(this::updatePreviewHeight);
         if (getSupportFragmentManager().findFragmentByTag("stream-destination") == null) {
             getSupportFragmentManager().beginTransaction()
                     .replace(
@@ -379,87 +500,28 @@ public final class SetupActivity extends FragmentActivity
         }
     }
 
+    private void updatePreviewHeight() {
+        int availableHeight = setupContent.getHeight()
+                - setupContent.getPaddingTop()
+                - setupContent.getPaddingBottom();
+        int previewHeight = SetupViewportLayout.previewHeight(availableHeight);
+        if (previewHeight == 0) {
+            return;
+        }
+        ViewGroup.LayoutParams parameters = sanitizedPreviewContainer.getLayoutParams();
+        if (parameters.height != previewHeight) {
+            parameters.height = previewHeight;
+            sanitizedPreviewContainer.setLayoutParams(parameters);
+        }
+    }
+
     private void bindIndoorPrivacyControls() {
-        watchlistInput = findViewById(R.id.watchlist_term_input);
-        watchlistTermsContainer = findViewById(R.id.watchlist_terms_container);
-        watchlistStatus = findViewById(R.id.watchlist_status);
         zoneEditor = findViewById(R.id.privacy_zone_editor_overlay);
-        zoneStatus = findViewById(R.id.privacy_zone_status);
-        zoneConfirmButton = findViewById(R.id.confirm_privacy_zones);
-        findViewById(R.id.add_watchlist_term).setOnClickListener(ignored -> addWatchlistTerm());
+        privacyZoneIndicator = findViewById(R.id.privacy_zone_indicator);
         findViewById(R.id.toggle_zone_drawing).setOnClickListener(this::toggleZoneDrawing);
         zoneEditor.setZoneDrawListener(this::addDrawnZone);
-        findViewById(R.id.previous_privacy_zone).setOnClickListener(
-                ignored -> selectRelativeZone(-1));
-        findViewById(R.id.next_privacy_zone).setOnClickListener(
-                ignored -> selectRelativeZone(1));
-        findViewById(R.id.remove_privacy_zone).setOnClickListener(
-                ignored -> removeSelectedZone());
-        zoneConfirmButton.setOnClickListener(ignored -> confirmZoneAlignment());
-        renderWatchlist();
+        zoneEditor.setZoneRemoveListener(this::removeZone);
         renderZoneEditor();
-    }
-
-    private void addWatchlistTerm() {
-        try {
-            boolean added = indoorPrivacySetup.addWatchlistTerm(
-                    watchlistInput.getText().toString());
-            watchlistInput.getText().clear();
-            watchlistStatus.setText(added
-                    ? getResources().getQuantityString(R.plurals.watchlist_status_count,
-                            indoorPrivacySetup.snapshot().normalizedWatchlistTerms().size(),
-                            indoorPrivacySetup.snapshot().normalizedWatchlistTerms().size(),
-                            IndoorPrivacySetupController.MAX_WATCHLIST_TERMS)
-                    : getString(R.string.watchlist_status_duplicate));
-            notifyWatchlistChanged();
-            renderWatchlistRows();
-        } catch (IllegalArgumentException exception) {
-            watchlistStatus.setText(R.string.watchlist_status_invalid);
-        } catch (IllegalStateException exception) {
-            watchlistStatus.setText(R.string.watchlist_status_limit);
-        }
-    }
-
-    private void renderWatchlist() {
-        renderWatchlistRows();
-        int count = indoorPrivacySetup.snapshot().normalizedWatchlistTerms().size();
-        watchlistStatus.setText(count == 0
-                ? getString(R.string.watchlist_status_empty)
-                : getResources().getQuantityString(R.plurals.watchlist_status_count, count, count,
-                        IndoorPrivacySetupController.MAX_WATCHLIST_TERMS));
-    }
-
-    private void renderWatchlistRows() {
-        watchlistTermsContainer.removeAllViews();
-        int position = 0;
-        for (String term : indoorPrivacySetup.snapshot().normalizedWatchlistTerms()) {
-            int itemNumber = ++position;
-            LinearLayout row = new LinearLayout(this);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setSaveEnabled(false);
-            TextView label = new TextView(this);
-            label.setText(term);
-            label.setTextColor(0xFFFFFFFF);
-            label.setSaveEnabled(false);
-            row.addView(label, new LinearLayout.LayoutParams(
-                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
-            Button remove = new Button(this);
-            remove.setText(R.string.remove_privacy_zone);
-            remove.setContentDescription(getString(R.string.remove_watchlist_term, itemNumber));
-            remove.setOnClickListener(ignored -> {
-                indoorPrivacySetup.removeWatchlistTerm(term);
-                notifyWatchlistChanged();
-                renderWatchlist();
-            });
-            row.addView(remove);
-            watchlistTermsContainer.addView(row);
-        }
-    }
-
-    private void notifyWatchlistChanged() {
-        Set<String> detached = Set.copyOf(
-                indoorPrivacySetup.snapshot().normalizedWatchlistTerms());
-        privacyConfigurationListener.onWatchlistChanged(detached);
     }
 
     private void toggleZoneDrawing(View buttonView) {
@@ -474,43 +536,29 @@ public final class SetupActivity extends FragmentActivity
     private void addDrawnZone(com.liveshield.privacy.model.NormalizedRect zone) {
         try {
             indoorPrivacySetup.addPrivacyZone(zone);
-            selectedZoneIndex = indoorPrivacySetup.configuredPrivacyZones().size() - 1;
             markEditedZoneUnsafe();
-            // A touch-drawn rectangle is already defined directly in the currently validated
-            // sanitized-output coordinate space. Commit it atomically so the fail-private policy
-            // never blanks the very preview the creator needs to inspect. Numeric edits still
-            // require the explicit confirmation control below.
+            // The controller atomically stages output geometry as unsafe. A currently validated
+            // transform can immediately replace it with safe sensor-space geometry; otherwise the
+            // policy remains full-shielded until alignment is confirmed.
             if (cameraTransformValidated) {
                 confirmZoneAlignment();
             }
-        } catch (IllegalArgumentException exception) {
-            zoneStatus.setText(R.string.privacy_zone_status_invalid);
-        } catch (IllegalStateException exception) {
-            zoneStatus.setText(R.string.privacy_zone_status_limit);
+        } catch (IllegalArgumentException | IllegalStateException invalidZone) {
+            AppDiagnostics.failure(AppDiagnostics.Event.PRIVACY_ZONE_EDIT_REJECTED, invalidZone);
         }
     }
 
-    private void selectRelativeZone(int offset) {
-        int count = indoorPrivacySetup.configuredPrivacyZones().size();
-        if (count == 0) {
-            selectedZoneIndex = -1;
-        } else if (selectedZoneIndex < 0) {
-            selectedZoneIndex = offset > 0 ? 0 : count - 1;
-        } else {
-            selectedZoneIndex = Math.floorMod(selectedZoneIndex + offset, count);
-        }
-        renderZoneEditor();
-    }
-
-    private void removeSelectedZone() {
-        if (selectedZoneIndex < 0) {
+    private void removeZone(int index) {
+        if (index < 0 || index >= indoorPrivacySetup.configuredPrivacyZones().size()) {
             return;
         }
-        indoorPrivacySetup.removePrivacyZone(selectedZoneIndex);
+        indoorPrivacySetup.removePrivacyZone(index);
         int count = indoorPrivacySetup.configuredPrivacyZones().size();
-        selectedZoneIndex = count == 0 ? -1 : Math.min(selectedZoneIndex, count - 1);
         if (count > 0) {
             markEditedZoneUnsafe();
+            if (cameraTransformValidated) {
+                confirmZoneAlignment();
+            }
         } else {
             renderZoneEditor();
         }
@@ -533,14 +581,16 @@ public final class SetupActivity extends FragmentActivity
 
     /** The editor stores displayed-output coordinates; renderer decisions require sensor space. */
     private void applyOutputZonesToSensor() {
+        IndoorPrivacySetupController.ZoneTransformSnapshot transformRequest =
+                indoorPrivacySetup.zoneTransformSnapshot();
         List<com.liveshield.privacy.model.NormalizedRect> configured =
-                indoorPrivacySetup.configuredPrivacyZones();
+                transformRequest.configuredZones();
         ArrayList<com.liveshield.privacy.model.NormalizedRect> sensorZones =
                 new ArrayList<>(configured.size());
         for (com.liveshield.privacy.model.NormalizedRect outputZone : configured) {
             sensorZones.add(privacyZoneTransform.mapOutputRectToSensor(outputZone));
         }
-        indoorPrivacySetup.applySafelyTransformedZones(sensorZones);
+        indoorPrivacySetup.applySafelyTransformedZones(transformRequest, sensorZones);
     }
 
     private void renderZoneEditor() {
@@ -549,24 +599,12 @@ public final class SetupActivity extends FragmentActivity
         }
         List<com.liveshield.privacy.model.NormalizedRect> zones =
                 indoorPrivacySetup.configuredPrivacyZones();
-        if (selectedZoneIndex >= zones.size()) {
-            selectedZoneIndex = zones.isEmpty() ? -1 : zones.size() - 1;
-        }
-        zoneEditor.showZones(zones, selectedZoneIndex);
+        zoneEditor.showZones(zones);
         IndoorPrivacySetupController.Configuration snapshot = indoorPrivacySetup.snapshot();
-        if (zones.isEmpty()) {
-            zoneStatus.setText(R.string.privacy_zone_status_empty);
-        } else if (snapshot.zonesSafelyTransformed()) {
-            zoneStatus.setText(getResources().getQuantityString(
-                    R.plurals.privacy_zone_status_safe, zones.size(), zones.size()));
-        } else {
-            zoneStatus.setText(getResources().getQuantityString(
-                    R.plurals.privacy_zone_status_selected, zones.size(),
-                    Math.max(1, selectedZoneIndex + 1), zones.size()));
-        }
-        zoneConfirmButton.setEnabled(
-                !zones.isEmpty() && cameraTransformValidated
-                        && !snapshot.zonesSafelyTransformed());
+        privacyZoneIndicator.setBackgroundResource(
+                !zones.isEmpty() && snapshot.zonesSafelyTransformed()
+                        ? R.drawable.ls_status_circle_selected
+                        : R.drawable.ls_status_circle);
     }
 
     private void renderReadiness() {
@@ -582,6 +620,8 @@ public final class SetupActivity extends FragmentActivity
             privacyStatus.setText(R.string.privacy_status_select_host);
         } else if (!readiness.privacyReady()) {
             privacyStatus.setText(R.string.privacy_status_checking);
+        } else if (!readiness.destinationConfigured()) {
+            privacyStatus.setText(R.string.privacy_status_choose_destination);
         } else {
             privacyStatus.setText(R.string.privacy_status_ready);
         }
@@ -648,10 +688,4 @@ public final class SetupActivity extends FragmentActivity
 
         void request(SetupActivity activity, int requestCode);
     }
-
-    @FunctionalInterface
-    public interface PrivacyConfigurationListener {
-        void onWatchlistChanged(Set<String> normalizedTerms);
-    }
-
 }

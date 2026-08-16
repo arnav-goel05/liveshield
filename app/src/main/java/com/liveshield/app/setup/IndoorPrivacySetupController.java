@@ -21,6 +21,7 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
     private List<NormalizedRect> configuredZones = List.of();
     private List<NormalizedRect> activeZones = List.of();
     private boolean zonesSafelyTransformed = true;
+    private long zoneRevision;
 
     /** Adds one exact session term after Unicode NFKC, root-locale case folding, and whitespace. */
     public synchronized boolean addWatchlistTerm(String term) {
@@ -40,7 +41,7 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
         return normalizedTerms.remove(normalizeWatchlistTerm(term));
     }
 
-    /** Adds a complete fixed zone, conservatively merging every overlapping zone. */
+    /** Stages a complete output-space zone and atomically makes policy use fail closed. */
     public synchronized void addPrivacyZone(NormalizedRect zone) {
         requireUsableZone(zone);
         List<NormalizedRect> merged = new ArrayList<>(configuredZones);
@@ -61,30 +62,24 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
             throw new IllegalStateException("Session privacy-zone limit reached");
         }
         merged.add(candidate);
-        configuredZones = List.copyOf(merged);
-        activeZones = configuredZones;
-        zonesSafelyTransformed = true;
+        stageConfiguredZones(merged);
     }
 
-    /** Replaces one creator-visible zone without retaining superseded geometry. */
+    /** Stages one creator-visible replacement while active policy remains fail closed. */
     public synchronized void replacePrivacyZone(int index, NormalizedRect replacement) {
         requireUsableZone(replacement);
         requireZoneIndex(index);
         List<NormalizedRect> updated = new ArrayList<>(configuredZones);
         updated.set(index, replacement);
-        configuredZones = List.copyOf(updated);
-        activeZones = configuredZones;
-        zonesSafelyTransformed = true;
+        stageConfiguredZones(updated);
     }
 
-    /** Removes one creator-visible zone from both configured and active session state. */
+    /** Stages one creator-visible removal while active policy remains fail closed. */
     public synchronized void removePrivacyZone(int index) {
         requireZoneIndex(index);
         List<NormalizedRect> updated = new ArrayList<>(configuredZones);
         updated.remove(index);
-        configuredZones = List.copyOf(updated);
-        activeZones = configuredZones;
-        zonesSafelyTransformed = true;
+        stageConfiguredZones(updated);
     }
 
     /** Immutable geometry for the private editor; it contains no camera pixels or recognized data. */
@@ -96,12 +91,30 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
     public synchronized void markZoneTransformUnsafe() {
         if (!configuredZones.isEmpty()) {
             zonesSafelyTransformed = false;
+            zoneRevision++;
         }
     }
 
     /** Replaces active zones only after the caller validates the complete camera transform. */
     public synchronized void applySafelyTransformedZones(List<NormalizedRect> transformedZones) {
+        applySafelyTransformedZones(zoneTransformSnapshot(), transformedZones);
+    }
+
+    /** Captures the exact configured geometry generation that a transform will map. */
+    public synchronized ZoneTransformSnapshot zoneTransformSnapshot() {
+        return new ZoneTransformSnapshot(zoneRevision, configuredZones);
+    }
+
+    /** Commits mapped geometry only if no edit or transform invalidation overtook the work. */
+    public synchronized boolean applySafelyTransformedZones(
+            ZoneTransformSnapshot expected,
+            List<NormalizedRect> transformedZones) {
+        Objects.requireNonNull(expected, "expected");
         Objects.requireNonNull(transformedZones, "transformedZones");
+        if (expected.revision() != zoneRevision
+                || !expected.configuredZones().equals(configuredZones)) {
+            return false;
+        }
         if (transformedZones.size() != configuredZones.size()) {
             throw new IllegalArgumentException(
                     "Every configured zone requires one complete transformed zone");
@@ -113,6 +126,7 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
         }
         activeZones = List.copyOf(safe);
         zonesSafelyTransformed = true;
+        return true;
     }
 
     /** Returns an immutable, provenance-safe policy view detached from future setup mutations. */
@@ -126,6 +140,7 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
         configuredZones = List.of();
         activeZones = List.of();
         zonesSafelyTransformed = true;
+        zoneRevision++;
     }
 
     @Override
@@ -170,6 +185,31 @@ public final class IndoorPrivacySetupController implements AutoCloseable {
         double area = (zone.right() - zone.left()) * (zone.bottom() - zone.top());
         if (area < MINIMUM_ZONE_AREA) {
             throw new IllegalArgumentException("Privacy zone is too small to configure safely");
+        }
+    }
+
+    /**
+     * Publishes configured output geometry and its unsafe latch as one synchronized transition.
+     * Existing sensor-space geometry is never replaced with output coordinates. The policy checks
+     * the latch before reading active zones, so a non-empty edit remains full-shielded until the
+     * caller supplies one complete transformed list.
+     */
+    private void stageConfiguredZones(List<NormalizedRect> updated) {
+        zoneRevision++;
+        configuredZones = List.copyOf(updated);
+        if (configuredZones.isEmpty()) {
+            activeZones = List.of();
+            zonesSafelyTransformed = true;
+        } else {
+            zonesSafelyTransformed = false;
+        }
+    }
+
+    /** Immutable, payload-free token for one configured-zone geometry generation. */
+    public record ZoneTransformSnapshot(
+            long revision, List<NormalizedRect> configuredZones) {
+        public ZoneTransformSnapshot {
+            configuredZones = List.copyOf(configuredZones);
         }
     }
 

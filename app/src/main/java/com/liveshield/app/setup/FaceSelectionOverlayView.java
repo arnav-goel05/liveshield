@@ -22,6 +22,12 @@ public final class FaceSelectionOverlayView extends View {
 
     public void showFaces(List<SelectableFace> newFaces, Long selectedTrack) {
         faces = List.copyOf(newFaces);
+        boolean selectedFresh = selectedTrack != null && faces.stream().anyMatch(
+                face -> face.fresh() && face.trackId() == selectedTrack.longValue());
+        setSelected(selectedFresh);
+        setContentDescription(getResources().getString(selectedFresh
+                ? R.string.face_selection_overlay_selected_description
+                : R.string.face_selection_overlay_description));
     }
 
     public void setSelectionListener(SelectionListener newListener) {

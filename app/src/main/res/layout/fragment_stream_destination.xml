@@ -6,86 +6,135 @@
     android:orientation="vertical"
     android:saveEnabled="false">
 
-    <TextView
+    <LinearLayout
+        android:id="@+id/destination_section_header"
+        android:layout_width="match_parent"
+        android:layout_height="68dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:foreground="?android:attr/selectableItemBackground"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:contentDescription="@null"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_ls_expand_more"
+            android:tint="@color/ls_ink" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_weight="1"
+            android:text="@string/destination_title"
+            android:textColor="@color/ls_ink"
+            android:textSize="16sp" />
+
+        <ImageView
+            android:layout_width="24dp"
+            android:layout_height="24dp"
+            android:contentDescription="@null"
+            android:importantForAccessibility="no"
+            android:src="@drawable/ic_ls_chevron_right"
+            android:tint="@color/ls_ink" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/destination_details"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="@string/destination_title"
-        android:textColor="#FFFFFFFF"
-        android:textSize="18sp"
-        android:textStyle="bold" />
+        android:background="@color/ls_teal_pale"
+        android:orientation="vertical"
+        android:padding="14dp"
+        android:visibility="gone">
 
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="6dp"
-        android:text="@string/destination_video_only_explanation"
-        android:textColor="#FFCFD8DC" />
-
-    <RadioGroup
-        android:id="@+id/destination_kind"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:saveEnabled="false">
-
-        <RadioButton
-            android:id="@+id/destination_local_demo"
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/destination_local_demo" />
+            android:text="@string/destination_video_only_explanation"
+            android:textColor="@color/ls_slate"
+            android:textSize="14sp" />
 
-        <RadioButton
-            android:id="@+id/destination_tiktok_external"
+        <RadioGroup
+            android:id="@+id/destination_kind"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/destination_tiktok_external" />
-    </RadioGroup>
+            android:layout_marginTop="8dp"
+            android:saveEnabled="false">
 
-    <TextView
-        android:id="@+id/external_stream_eligibility"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/destination_tiktok_eligibility"
-        android:textColor="#FFFFD180"
-        android:visibility="gone" />
+            <RadioButton
+                android:id="@+id/destination_local_demo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="@color/ls_teal"
+                android:text="@string/destination_local_demo"
+                android:textColor="@color/ls_ink" />
 
-    <EditText
-        android:id="@+id/external_stream_endpoint"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:autofillHints=""
-        android:hint="@string/destination_endpoint_hint"
-        android:importantForAutofill="noExcludeDescendants"
-        android:inputType="textUri"
-        android:saveEnabled="false"
-        android:visibility="gone" />
+            <RadioButton
+                android:id="@+id/destination_tiktok_external"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:buttonTint="@color/ls_teal"
+                android:text="@string/destination_tiktok_external"
+                android:textColor="@color/ls_ink" />
+        </RadioGroup>
 
-    <EditText
-        android:id="@+id/external_stream_secret"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:autofillHints=""
-        android:freezesText="false"
-        android:hint="@string/destination_secret_hint"
-        android:importantForAutofill="noExcludeDescendants"
-        android:inputType="textPassword"
-        android:saveEnabled="false"
-        android:visibility="gone" />
+        <TextView
+            android:id="@+id/external_stream_eligibility"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="@string/destination_tiktok_eligibility"
+            android:textColor="@color/ls_warning"
+            android:textSize="14sp"
+            android:visibility="gone" />
 
-    <TextView
-        android:id="@+id/destination_private_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:accessibilityLiveRegion="polite"
-        android:text="@string/destination_status_demo_not_configured"
-        android:textColor="#FFE8EEF2" />
+        <EditText
+            android:id="@+id/external_stream_endpoint"
+            style="@style/LiveShieldInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:autofillHints=""
+            android:hint="@string/destination_endpoint_hint"
+            android:importantForAutofill="noExcludeDescendants"
+            android:inputType="textUri"
+            android:saveEnabled="false"
+            android:visibility="visible" />
 
-    <Button
-        android:id="@+id/configure_stream_destination"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:text="@string/destination_configure" />
+        <EditText
+            android:id="@+id/external_stream_secret"
+            style="@style/LiveShieldInput"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:autofillHints=""
+            android:freezesText="false"
+            android:hint="@string/destination_secret_hint"
+            android:importantForAutofill="noExcludeDescendants"
+            android:inputType="textPassword"
+            android:saveEnabled="false"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/destination_private_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:accessibilityLiveRegion="polite"
+            android:text="@string/destination_status_demo_not_configured"
+            android:textColor="@color/ls_slate"
+            android:textSize="14sp" />
+
+        <Button
+            android:id="@+id/configure_stream_destination"
+            style="@style/LiveShieldTextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:text="@string/destination_configure" />
+    </LinearLayout>
 </LinearLayout>

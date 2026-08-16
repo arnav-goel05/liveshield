@@ -42,15 +42,17 @@ public final class SoloIndoorFlowTest {
 
     @Test
     public void a01DeniedCameraPermissionKeepsSetupExplicitlyFailClosed() {
+        AtomicInteger cameraRequests = new AtomicInteger();
         try (ActivityScenario<SetupActivity> scenario =
                      ActivityScenario.launch(SetupActivity.class)) {
             scenario.onActivity(activity ->
-                    SetupActivityTestHarness.installCameraPermission(activity, false));
+                    SetupActivityTestHarness.installCameraPermission(
+                            activity, false, cameraRequests));
             onView(withText(R.string.scope_disclosure_unsupported)).check(matches(isDisplayed()));
             onView(withId(R.id.acknowledge_scope_disclosure)).perform(click());
             onView(withId(R.id.camera_permission_status))
                     .check(matches(withText(R.string.camera_permission_denied)));
-            onView(withId(R.id.request_camera_permission)).check(matches(isDisplayed()));
+            assertEquals(1, cameraRequests.get());
             onView(withId(R.id.privacy_readiness_status))
                     .check(matches(withText(R.string.privacy_status_permission_required)));
             onView(withId(R.id.start_protected_live)).check(matches(not(isEnabled())));
@@ -95,6 +97,8 @@ public final class SoloIndoorFlowTest {
                             new NormalizedRect(0.2, 0.2, 0.6, 0.7),
                             true)),
                     SELECTED_TRACK_ID));
+            onView(withId(R.id.face_selection_status))
+                    .check(matches(withText(R.string.setup_face_selected)));
             onView(withId(R.id.privacy_readiness_status))
                     .check(matches(withText(R.string.privacy_status_checking)));
             onView(withId(R.id.start_protected_live)).check(matches(not(isEnabled())));

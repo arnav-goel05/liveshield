@@ -129,8 +129,6 @@ final class SessionPublicationPort
         if (acceptingUnits && controller != null) {
             controller.onNetworkDisconnected();
             refreshHealth();
-            replayConfigurationForReconnect();
-            refreshHealth();
         }
     }
 
@@ -138,8 +136,6 @@ final class SessionPublicationPort
     public synchronized void onCongestion() {
         if (acceptingUnits && controller != null) {
             controller.onCongestionDetected();
-            refreshHealth();
-            replayConfigurationForReconnect();
             refreshHealth();
         }
     }
@@ -199,6 +195,8 @@ final class SessionPublicationPort
     }
 
     private synchronized void onControllerHealth(StreamSessionController.Health health) {
+        boolean enteredReconnect = health.state() == StreamSessionController.State.RECONNECTING
+                && lastHealth.state() != LiveSessionCoordinator.PublisherState.RECONNECTING;
         lastHealth = new LiveSessionCoordinator.PublisherHealth(
                 mapState(health.state()),
                 mapFailure(health.failureCode()),
@@ -211,6 +209,12 @@ final class SessionPublicationPort
             acceptingUnits = false;
         }
         notifyHealth();
+        if (enteredReconnect) {
+            // Re-seed the freshly cleared queue exactly once per reconnect epoch. This path also
+            // covers disconnects reported directly by the RTMP client, not only explicit calls.
+            replayConfigurationForReconnect();
+            refreshHealth();
+        }
     }
 
     private void notifyHealth() {
