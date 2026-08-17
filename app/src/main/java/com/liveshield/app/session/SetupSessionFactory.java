@@ -267,7 +267,10 @@ public final class SetupSessionFactory {
                         withCoordinator(coordinatorRef,
                                 LiveSessionCoordinator::onSafetyHealthChanged);
                     }
-                });
+                },
+                cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA
+                        ? SceneChangeDetector.forRearCamera()
+                        : new SceneChangeDetector());
         constructed.add(analyzer);
         RendererOwnedPreview preview =
                 new RendererOwnedPreview(activity.sanitizedPreviewContainer());

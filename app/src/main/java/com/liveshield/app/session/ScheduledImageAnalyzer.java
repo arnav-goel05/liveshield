@@ -23,7 +23,7 @@ final class ScheduledImageAnalyzer implements ImageAnalysis.Analyzer, AutoClosea
     private final AtomicReference<CameraGeometry> cameraGeometry = new AtomicReference<>();
     private final Supplier<SessionHealth.ThermalState> thermalState;
     private final Consumer<SessionHealth.SceneState> sceneListener;
-    private final SceneChangeDetector sceneDetector = new SceneChangeDetector();
+    private final SceneChangeDetector sceneDetector;
     private final AtomicBoolean resolutionReported = new AtomicBoolean();
     private final AtomicBoolean transformReported = new AtomicBoolean();
     private boolean closed;
@@ -38,11 +38,22 @@ final class ScheduledImageAnalyzer implements ImageAnalysis.Analyzer, AutoClosea
             Runnable unavailableCallback,
             Supplier<SessionHealth.ThermalState> thermalState,
             Consumer<SessionHealth.SceneState> sceneListener) {
+        this(scheduler, unavailableCallback, thermalState, sceneListener,
+                new SceneChangeDetector());
+    }
+
+    ScheduledImageAnalyzer(
+            VisionScheduler scheduler,
+            Runnable unavailableCallback,
+            Supplier<SessionHealth.ThermalState> thermalState,
+            Consumer<SessionHealth.SceneState> sceneListener,
+            SceneChangeDetector sceneDetector) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         this.unavailableCallback = Objects.requireNonNull(
                 unavailableCallback, "unavailableCallback");
         this.thermalState = Objects.requireNonNull(thermalState, "thermalState");
         this.sceneListener = Objects.requireNonNull(sceneListener, "sceneListener");
+        this.sceneDetector = Objects.requireNonNull(sceneDetector, "sceneDetector");
     }
 
     void updateCameraGeometry(CameraGeometry geometry) {
