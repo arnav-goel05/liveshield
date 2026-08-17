@@ -65,7 +65,21 @@ public final class SetupSessionFactory {
             SetupActivity activity,
             CreationListener listener,
             TerminalListener terminalListener) {
+        return create(
+                activity,
+                CameraSelector.DEFAULT_FRONT_CAMERA,
+                listener,
+                terminalListener);
+    }
+
+    /** Creates one protected session graph using the requested physical camera. */
+    public static PendingCreation create(
+            SetupActivity activity,
+            CameraSelector cameraSelector,
+            CreationListener listener,
+            TerminalListener terminalListener) {
         Objects.requireNonNull(activity, "activity");
+        Objects.requireNonNull(cameraSelector, "cameraSelector");
         Objects.requireNonNull(listener, "listener");
         Objects.requireNonNull(terminalListener, "terminalListener");
         AtomicBoolean cancelled = new AtomicBoolean();
@@ -79,7 +93,11 @@ public final class SetupSessionFactory {
             try {
                 AppDiagnostics.info(AppDiagnostics.Event.CAMERA_PROVIDER_READY);
                 listener.onCreated(compose(
-                        activity, future.get(), mainExecutor, terminalListener));
+                        activity,
+                        future.get(),
+                        cameraSelector,
+                        mainExecutor,
+                        terminalListener));
             } catch (Exception exception) {
                 AppDiagnostics.failure(AppDiagnostics.Event.SESSION_FACTORY_FAILED, exception);
                 listener.onFailure(exception);
@@ -91,6 +109,7 @@ public final class SetupSessionFactory {
     private static LiveSessionCoordinator compose(
             SetupActivity activity,
             ProcessCameraProvider provider,
+            CameraSelector cameraSelector,
             Executor mainExecutor,
             TerminalListener terminalListener) {
         ExecutorService renderExecutor = singleThread("LiveShield-Privacy-Render");
@@ -98,7 +117,8 @@ public final class SetupSessionFactory {
         try {
             AppDiagnostics.info(AppDiagnostics.Event.SESSION_GRAPH_COMPOSE_STARTED);
             return composeGraph(
-                    activity, provider, mainExecutor, renderExecutor, analysisExecutor,
+                    activity, provider, cameraSelector, mainExecutor,
+                    renderExecutor, analysisExecutor,
                     terminalListener);
         } catch (RuntimeException exception) {
             analysisExecutor.shutdown();
@@ -110,6 +130,7 @@ public final class SetupSessionFactory {
     private static LiveSessionCoordinator composeGraph(
             SetupActivity activity,
             ProcessCameraProvider provider,
+            CameraSelector cameraSelector,
             Executor mainExecutor,
             ExecutorService renderExecutor,
             ExecutorService analysisExecutor,
@@ -185,7 +206,10 @@ public final class SetupSessionFactory {
         activity.setPrivacyConfigurationListener(() -> textAnalyzer.updateNormalizedWatchlistTerms(
                 activity.sessionPrivacyConfiguration().normalizedWatchlistTerms()));
         constructed.add(textAnalyzer);
-        OfflineBarcodeAnalyzer barcodeAnalyzer = new OfflineBarcodeAnalyzer();
+        OfflineBarcodeAnalyzer barcodeAnalyzer =
+                cameraSelector == CameraSelector.DEFAULT_BACK_CAMERA
+                        ? OfflineBarcodeAnalyzer.forRearCamera()
+                        : new OfflineBarcodeAnalyzer();
         constructed.add(barcodeAnalyzer);
         PriorityTwoPrivacyPolicyEngine policy = priorityTwoPolicy();
         VisionScheduler scheduler = new VisionScheduler(
@@ -248,7 +272,7 @@ public final class SetupSessionFactory {
         RendererOwnedPreview preview =
                 new RendererOwnedPreview(activity.sanitizedPreviewContainer());
         CameraSessionController camera = new CameraSessionController(
-                provider, activity, CameraSelector.DEFAULT_FRONT_CAMERA,
+                provider, activity, cameraSelector,
                 processor.cameraEffect(), preview.surfaceProvider(), analyzer, output,
                 mainExecutor, analysisExecutor);
         constructed.add(camera);

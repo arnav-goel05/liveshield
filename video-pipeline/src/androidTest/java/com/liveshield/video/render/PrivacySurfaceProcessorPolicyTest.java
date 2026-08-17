@@ -113,6 +113,24 @@ public final class PrivacySurfaceProcessorPolicyTest {
     }
 
     @Test
+    public void frontCameraKeepsExistingTextureDerivedOverlayTransform() {
+        FrameTransform input = transform(270, true);
+        FrameTransform displayed = transform(90, false);
+
+        assertSame(displayed, PrivacySurfaceProcessor.selectOverlayTransform(
+                false, input, displayed));
+    }
+
+    @Test
+    public void rearCameraUsesCameraInputOverlayTransform() {
+        FrameTransform input = transform(90, false);
+        FrameTransform textureDerived = transform(270, false);
+
+        assertSame(input, PrivacySurfaceProcessor.selectOverlayTransform(
+                true, input, textureDerived));
+    }
+
+    @Test
     public void incomingFrameCallbackAfterCloseDoesNotReachTerminatedExecutor() {
         List<Throwable> failures = new ArrayList<>();
         AtomicBoolean terminated = new AtomicBoolean();
@@ -137,5 +155,13 @@ public final class PrivacySurfaceProcessorPolicyTest {
 
         assertEquals(List.of(), failures);
         assertEquals(PrivacySurfaceProcessor.Readiness.UNAVAILABLE, processor.readiness());
+    }
+
+    private static FrameTransform transform(int rotationDegrees, boolean mirrored) {
+        return FrameTransform.fromCameraMetadata(
+                CoordinateTransform.identity(),
+                new NormalizedRect(0.0, 0.0, 1.0, 1.0),
+                rotationDegrees,
+                mirrored);
     }
 }

@@ -77,6 +77,20 @@
                     android:layout_height="match_parent"
                     android:importantForAccessibility="yes"
                     android:visibility="gone" />
+
+                <ImageButton
+                    android:id="@+id/switch_camera"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:layout_gravity="top|end"
+                    android:layout_margin="16dp"
+                    android:background="@drawable/ls_camera_switch_background"
+                    android:contentDescription="@string/switch_to_rear_camera"
+                    android:elevation="6dp"
+                    android:padding="12dp"
+                    android:src="@drawable/ic_ls_switch_camera"
+                    android:tint="@color/ls_ink"
+                    android:visibility="gone" />
             </FrameLayout>
 
             <TextView

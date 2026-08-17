@@ -275,6 +275,36 @@ public final class BarcodePrivacyAnalyzerTest {
     }
 
     @Test
+    public void rearCameraInputIsNearestDownscaledWithinBound() {
+        int width = 1440;
+        int height = 1080;
+        byte[] luminance = new byte[width * height];
+        luminance[width + 3] = (byte) 0x5a;
+
+        OfflineBarcodeAnalyzer.ZxingBarcodeEngine.ScaledLuminance scaled =
+                OfflineBarcodeAnalyzer.ZxingBarcodeEngine.scaleForDecode(
+                        luminance, width, height, 960);
+
+        assertEquals(960, scaled.width());
+        assertEquals(720, scaled.height());
+        assertEquals((byte) 0x5a, scaled.bytes()[scaled.width() + 2]);
+        assertEquals((byte) 0x5a, luminance[width + 3]);
+    }
+
+    @Test
+    public void frontCameraDecodePathKeepsOrdinaryInputUnchanged() {
+        byte[] luminance = new byte[1440 * 1080];
+
+        OfflineBarcodeAnalyzer.ZxingBarcodeEngine.ScaledLuminance scaled =
+                OfflineBarcodeAnalyzer.ZxingBarcodeEngine.scaleForDecode(
+                        luminance, 1440, 1080, Integer.MAX_VALUE);
+
+        assertTrue(luminance == scaled.bytes());
+        assertEquals(1440, scaled.width());
+        assertEquals(1080, scaled.height());
+    }
+
+    @Test
     public void realOneDimensionalDecodeUsesFullFrameWhenZxingReturnsOnlyCenterline()
             throws Exception {
         int width = 320;

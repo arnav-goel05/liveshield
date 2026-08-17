@@ -11,6 +11,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -39,6 +40,7 @@ public final class SetupActivity extends FragmentActivity
     private static final String DISCLOSURE_ACCEPTED_STATE = "scopeDisclosureAccepted";
     private static final String CAMERA_PERMISSION_REQUESTED_STATE =
             "cameraPermissionRequested";
+    private static final String CAMERA_FACING_STATE = "cameraFacing";
     private static final String DISCLOSURE_FRAGMENT_TAG = "scope-disclosure";
     private static final CameraPermissionPort SYSTEM_CAMERA_PERMISSION =
             new CameraPermissionPort() {
@@ -67,11 +69,14 @@ public final class SetupActivity extends FragmentActivity
     private TextView permissionStatus;
     private TextView privacyStatus;
     private Button startButton;
+    private ImageButton cameraSwitchButton;
     private LiveSessionCoordinator sessionCoordinator;
     private SetupSessionFactory.PendingCreation pendingCreation;
     private boolean uiContractHarnessInstalledForTest;
     private boolean scopeDisclosureAccepted;
     private boolean cameraPermissionRequestIssued;
+    private boolean cameraSwitchInProgress;
+    private SetupCameraFacing cameraFacing = SetupCameraFacing.FRONT;
     private CameraPermissionPort cameraPermissionPort = SYSTEM_CAMERA_PERMISSION;
     private StreamDestination streamDestination;
     private EditText watchlistInput;
@@ -108,6 +113,10 @@ public final class SetupActivity extends FragmentActivity
             permissionStatus = findViewById(R.id.camera_permission_status);
             privacyStatus = findViewById(R.id.privacy_readiness_status);
             startButton = findViewById(R.id.start_protected_live);
+            cameraFacing = restoredCameraFacing(savedInstanceState);
+            cameraSwitchButton = findViewById(R.id.switch_camera);
+            cameraSwitchButton.setOnClickListener(ignored -> switchCamera());
+            updateCameraSwitchButton();
             bindIndoorPrivacyControls();
 
             findViewById(R.id.face_selection_row).setOnClickListener(
@@ -199,6 +208,7 @@ public final class SetupActivity extends FragmentActivity
         outState.putBoolean(DISCLOSURE_ACCEPTED_STATE, scopeDisclosureAccepted);
         outState.putBoolean(
                 CAMERA_PERMISSION_REQUESTED_STATE, cameraPermissionRequestIssued);
+        outState.putString(CAMERA_FACING_STATE, cameraFacing.name());
         super.onSaveInstanceState(outState);
     }
 
@@ -391,6 +401,7 @@ public final class SetupActivity extends FragmentActivity
             sanitizedPreviewContainer.setClickable(!granted);
             sanitizedPreviewContainer.setFocusable(!granted);
             faceOverlay.setEnabled(granted);
+            updateCameraSwitchButton();
             renderReadiness();
             if (granted) {
                 ensureSessionCoordinator();
@@ -408,7 +419,9 @@ public final class SetupActivity extends FragmentActivity
             return;
         }
         pendingCreation = SetupSessionFactory.create(
-                this, new SetupSessionFactory.CreationListener() {
+                this,
+                cameraFacing.selector(),
+                new SetupSessionFactory.CreationListener() {
                     @Override
                     public void onCreated(LiveSessionCoordinator coordinator) {
                         pendingCreation = null;
@@ -418,11 +431,15 @@ public final class SetupActivity extends FragmentActivity
                             return;
                         }
                         attachCoordinator(coordinator);
+                        cameraSwitchInProgress = false;
+                        updateCameraSwitchButton();
                     }
 
                     @Override
                     public void onFailure(Throwable failure) {
                         pendingCreation = null;
+                        cameraSwitchInProgress = false;
+                        updateCameraSwitchButton();
                         AppDiagnostics.failure(
                                 AppDiagnostics.Event.SESSION_FACTORY_FAILED, failure);
                         if (uiContractHarnessInstalledForTest) {
@@ -432,6 +449,76 @@ public final class SetupActivity extends FragmentActivity
                         showSessionRetryAvailable();
                     }
                 }, this::onSessionTerminated);
+    }
+
+    private void switchCamera() {
+        if (!scopeDisclosureAccepted
+                || !readiness.cameraPermissionGranted()
+                || cameraSwitchInProgress
+                || uiContractHarnessInstalledForTest
+                || isFinishing()
+                || isDestroyed()) {
+            return;
+        }
+        cameraSwitchInProgress = true;
+        cameraFacing = cameraFacing.opposite();
+        updateCameraSwitchButton();
+        resetCameraSpecificSetup();
+        if (pendingCreation != null) {
+            pendingCreation.cancel();
+            pendingCreation = null;
+        }
+        if (sessionCoordinator != null) {
+            sessionCoordinator.close();
+        } else {
+            ensureSessionCoordinator();
+        }
+    }
+
+    private void resetCameraSpecificSetup() {
+        readiness = SetupReadinessState.initial().withCameraPermission(true);
+        hostReselectionRequired = false;
+        cameraTransformValidated = false;
+        privacyZoneTransform = null;
+        indoorPrivacySetup.markZoneTransformUnsafe();
+        faceOverlay.showFaces(List.of(), null);
+        faceOverlay.showDismissiblePrivacyMasks(List.of());
+        faceSelectionStatus.setText(R.string.setup_face_waiting);
+        showFeatureSelected(faceSelectionIndicator, false);
+        if (streamDestination != null) {
+            streamDestination.close();
+            streamDestination = null;
+        }
+        showDestinationRequired();
+        renderZoneEditor();
+        renderReadiness();
+    }
+
+    private void updateCameraSwitchButton() {
+        if (cameraSwitchButton == null) {
+            return;
+        }
+        boolean permissionGranted = scopeDisclosureAccepted
+                && cameraPermissionPort.isGranted(this);
+        cameraSwitchButton.setVisibility(permissionGranted ? View.VISIBLE : View.GONE);
+        cameraSwitchButton.setEnabled(permissionGranted && !cameraSwitchInProgress);
+        cameraSwitchButton.setContentDescription(getString(
+                cameraFacing == SetupCameraFacing.FRONT
+                        ? R.string.switch_to_rear_camera
+                        : R.string.switch_to_front_camera));
+    }
+
+    private static SetupCameraFacing restoredCameraFacing(Bundle savedInstanceState) {
+        if (savedInstanceState == null) {
+            return SetupCameraFacing.FRONT;
+        }
+        String stored = savedInstanceState.getString(
+                CAMERA_FACING_STATE, SetupCameraFacing.FRONT.name());
+        try {
+            return SetupCameraFacing.valueOf(stored);
+        } catch (IllegalArgumentException exception) {
+            return SetupCameraFacing.FRONT;
+        }
     }
 
     private void configurePublication(
@@ -458,6 +545,10 @@ public final class SetupActivity extends FragmentActivity
             }
             sessionCoordinator = null;
             listener = SetupUiListener.NO_OP;
+            if (cameraSwitchInProgress) {
+                ensureSessionCoordinator();
+                return;
+            }
             readiness = SetupReadinessState.initial().withCameraPermission(
                     cameraPermissionPort.isGranted(this));
             hostReselectionRequired = false;
@@ -468,6 +559,7 @@ public final class SetupActivity extends FragmentActivity
             showDestinationRequired();
             showSessionRetryAvailable();
             renderReadiness();
+            updateCameraSwitchButton();
         });
     }
 
@@ -812,6 +904,8 @@ public final class SetupActivity extends FragmentActivity
         hostReselectionRequired = false;
         faceOverlay.showFaces(List.of(), null);
         setSetupUiListener(harnessListener);
+        cameraSwitchInProgress = false;
+        updateCameraSwitchButton();
         renderReadiness();
     }
 

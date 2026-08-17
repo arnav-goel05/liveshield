@@ -50,6 +50,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 
 /**
  * The sole CameraX raw-surface owner and bridge to sanitized preview/video surfaces.
@@ -75,6 +76,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
     private final ScheduledExecutorService deadlineScheduler;
     private final Object lock = new Object();
     private FrameTransform frameTransform;
+    private FrameTransform cameraInputTransform;
     private GlPipeline pipeline;
     private GlBufferedFrameProcessor frameProcessor;
     private boolean inputProvided;
@@ -83,6 +85,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
     private Readiness readiness = Readiness.NOT_READY;
     private SurfaceRequest activeInputRequest;
     private CameraGeometry selectedCameraGeometry;
+    private boolean selectedCameraIsRear;
     private SessionHealth.RecoveryState recoveryState = SessionHealth.RecoveryState.SAFE;
     private boolean bufferedRendererFailure;
     private VideoDiagnostics.RenderMode lastRenderMode;
@@ -211,12 +214,19 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
         Objects.requireNonNull(cameraInfo, "cameraInfo");
         Rect activeArray = Camera2CameraInfo.from(cameraInfo).getCameraCharacteristic(
                 CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE);
+        Integer lensFacing = Camera2CameraInfo.from(cameraInfo).getCameraCharacteristic(
+                CameraCharacteristics.LENS_FACING);
         if (activeArray == null || activeArray.width() <= 0 || activeArray.height() <= 0) {
             throw new IllegalArgumentException("Selected camera has no valid active sensor array");
+        }
+        if (lensFacing == null) {
+            throw new IllegalArgumentException("Selected camera has no lens-facing metadata");
         }
         synchronized (lock) {
             ensureOpen();
             selectedCameraGeometry = CameraGeometry.fromRect(activeArray);
+            selectedCameraIsRear = lensFacing == CameraCharacteristics.LENS_FACING_BACK;
+            cameraInputTransform = null;
             transformReady = false;
         }
     }
@@ -251,7 +261,9 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             GlPipeline created = new GlPipeline(
                     request.getResolution().getWidth(),
                     request.getResolution().getHeight(),
-                    transformListener);
+                    transformListener,
+                    selectedCameraIsRear,
+                    this::requireCameraInputTransform);
             GlBufferedFrameProcessor createdProcessor = new GlBufferedFrameProcessor(
                     MAX_RAW_TEXTURES,
                     decisionStore,
@@ -307,6 +319,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                     transformationInfo.isMirroring());
             synchronized (lock) {
                 ensureOpen();
+                cameraInputTransform = inputTransform;
                 frameTransform = inputTransform;
             }
             VideoDiagnostics.info(VideoDiagnostics.Event.PROCESSOR_TRANSFORM_READY);
@@ -610,6 +623,24 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                 : FramePrivacyDecision.fullShield(timestamp, FramePrivacyDecision.Basis.MISSING);
     }
 
+    static FrameTransform selectOverlayTransform(
+            boolean rearCamera,
+            FrameTransform cameraInputTransform,
+            FrameTransform textureDisplayedTransform) {
+        Objects.requireNonNull(cameraInputTransform, "cameraInputTransform");
+        Objects.requireNonNull(textureDisplayedTransform, "textureDisplayedTransform");
+        return rearCamera ? cameraInputTransform : textureDisplayedTransform;
+    }
+
+    private FrameTransform requireCameraInputTransform() {
+        synchronized (lock) {
+            if (cameraInputTransform == null) {
+                throw new IllegalStateException("Camera input transform is not ready");
+            }
+            return cameraInputTransform;
+        }
+    }
+
     private void reportFailure(Throwable failure) {
         VideoDiagnostics.failure(VideoDiagnostics.Event.PROCESSOR_FAILURE, failure);
         errorListener.accept(Objects.requireNonNull(failure, "failure"));
@@ -832,9 +863,15 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
         private final SurfaceTexture surfaceTexture;
         private final Surface inputSurface;
         private final TransformListener displayTransformListener;
+        private final boolean rearCameraMode;
+        private final Supplier<FrameTransform> cameraInputTransformSupplier;
 
         private GlPipeline(
-                int width, int height, TransformListener displayTransformListener) {
+                int width,
+                int height,
+                TransformListener displayTransformListener,
+                boolean rearCameraMode,
+                Supplier<FrameTransform> cameraInputTransformSupplier) {
             if (width <= 0 || height <= 0) {
                 throw new IllegalArgumentException("Camera input size must be positive");
             }
@@ -842,6 +879,9 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             this.height = height;
             this.displayTransformListener = Objects.requireNonNull(
                     displayTransformListener, "displayTransformListener");
+            this.rearCameraMode = rearCameraMode;
+            this.cameraInputTransformSupplier = Objects.requireNonNull(
+                    cameraInputTransformSupplier, "cameraInputTransformSupplier");
             display = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
             int[] versions = new int[2];
             if (display == EGL14.EGL_NO_DISPLAY
@@ -953,15 +993,26 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                                 target.transform[1], target.transform[5], target.transform[13],
                                 0.0, 0.0, 1.0
                             });
+                    FrameTransform textureDisplayTransform =
+                            toDisplayedOutput(target.frameTransform, target.transform);
+                    target.displayedTransform = rearCameraMode
+                            ? selectOverlayTransform(
+                                    true,
+                                    cameraInputTransformSupplier.get(),
+                                    textureDisplayTransform)
+                            : textureDisplayTransform;
                     if ((target.output.getTargets() & CameraEffect.PREVIEW) != 0) {
                         displayTransformListener.onTransformAvailable(
-                                toDisplayedOutput(target.frameTransform, target.transform));
+                                target.displayedTransform);
                     }
                 }
                 drawTexture(textureProgram, GLES20.GL_TEXTURE_2D, raw.texture,
                         target.transform, target.width, target.height);
                 GlRedactionRenderer.applyDecision(
-                        decision, target.frameTransform, target.width, target.height);
+                        decision,
+                        target.frameTransform,
+                        target.width,
+                        target.height);
                 EGLExt.eglPresentationTimeANDROID(
                         display, target.eglSurface, raw.timestamp.nanos());
                 if (!EGL14.eglSwapBuffers(display, target.eglSurface)) {
@@ -1149,6 +1200,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
             private final int height;
             private final FrameTransform frameTransform;
             private final float[] transform = IDENTITY_MATRIX.clone();
+            private FrameTransform displayedTransform;
             private boolean transformLogged;
 
             private OutputTarget(
@@ -1164,6 +1216,7 @@ public final class PrivacySurfaceProcessor implements SurfaceProcessor, AutoClos
                 this.width = width;
                 this.height = height;
                 this.frameTransform = Objects.requireNonNull(frameTransform, "frameTransform");
+                displayedTransform = frameTransform;
             }
 
             private void close(EGLDisplay display) {

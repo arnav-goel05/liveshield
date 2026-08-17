@@ -41,6 +41,7 @@ import java.util.concurrent.atomic.AtomicReference;
 /** Fully offline ZXing barcode analyzer that emits protected geometry and no decoded payload. */
 public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
     private static final int DEFAULT_MAXIMUM_CODES = 16;
+    private static final int REAR_CAMERA_MAXIMUM_DECODE_EDGE = 960;
     // High-resolution camera frames can take several hundred milliseconds to decode on-device.
     // Keep successful geometry valid up to the scheduler's bounded one-second maximum.
     private static final long DEFAULT_FRESHNESS_NANOS = 1_000_000_000L;
@@ -54,6 +55,20 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
 
     public OfflineBarcodeAnalyzer() {
         this(new ZxingBarcodeEngine(), DEFAULT_MAXIMUM_CODES, DEFAULT_FRESHNESS_NANOS);
+    }
+
+    /**
+     * Creates the rear-camera variant with bounded decode resolution.
+     *
+     * <p>Detailed rear-camera scenes can make a full 1440-pixel multi-format scan exceed the
+     * one-second evidence window. Geometry remains normalized against the resized luminance, so
+     * this reduces obsolete completions without changing the front-camera analyzer.</p>
+     */
+    public static OfflineBarcodeAnalyzer forRearCamera() {
+        return new OfflineBarcodeAnalyzer(
+                new ZxingBarcodeEngine(REAR_CAMERA_MAXIMUM_DECODE_EDGE),
+                DEFAULT_MAXIMUM_CODES,
+                DEFAULT_FRESHNESS_NANOS);
     }
 
     OfflineBarcodeAnalyzer(BarcodeEngine engine, int maximumCodes, long freshnessNanos) {
@@ -437,6 +452,7 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
     static final class ZxingBarcodeEngine implements BarcodeEngine {
         private static final int MINIMUM_DECODE_EDGE = 256;
         private static final int MAXIMUM_UPSCALE_FACTOR = 4;
+        private final int maximumDecodeEdge;
         private final ExecutorService executor = Executors.newSingleThreadExecutor(runnable -> {
             Thread thread = new Thread(runnable, "LiveShield-ZXing");
             thread.setDaemon(true);
@@ -445,6 +461,17 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
         private final AtomicBoolean closed = new AtomicBoolean();
         // Executor-confined normalized hint. It contains geometry only, never decoded payload.
         private SearchRegion lastQrSearchRegion;
+
+        private ZxingBarcodeEngine() {
+            this(Integer.MAX_VALUE);
+        }
+
+        private ZxingBarcodeEngine(int maximumDecodeEdge) {
+            if (maximumDecodeEdge <= 0) {
+                throw new IllegalArgumentException("Maximum decode edge must be positive");
+            }
+            this.maximumDecodeEdge = maximumDecodeEdge;
+        }
 
         @Override
         public DecodeOperation decode(BarcodeAnalysisFrame frame, DecodeCallback callback) {
@@ -493,7 +520,8 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
         }
 
         private List<DetectedBarcode> decodeOwned(byte[] luminance, int width, int height) {
-            ScaledLuminance scaled = upscaleSmallInput(luminance, width, height);
+            ScaledLuminance scaled = scaleForDecode(
+                    luminance, width, height, maximumDecodeEdge);
             Map<DecodeHintType, Object> hints = new EnumMap<>(DecodeHintType.class);
             hints.put(DecodeHintType.POSSIBLE_FORMATS, enabledFormats());
             hints.put(DecodeHintType.TRY_HARDER, Boolean.TRUE);
@@ -619,6 +647,36 @@ public class OfflineBarcodeAnalyzer implements VisionAnalyzer, AutoCloseable {
                 for (int x = 0; x < scaledWidth; x++) {
                     scaled[targetRow + x] = luminance[sourceRow + x / factor];
                 }
+            }
+            return new ScaledLuminance(scaled, scaledWidth, scaledHeight);
+        }
+
+        static ScaledLuminance scaleForDecode(
+                byte[] luminance, int width, int height, int maximumEdge) {
+            ScaledLuminance enlarged = upscaleSmallInput(luminance, width, height);
+            int longest = Math.max(enlarged.width(), enlarged.height());
+            if (longest <= maximumEdge) {
+                return enlarged;
+            }
+            double scale = maximumEdge / (double) longest;
+            int scaledWidth = Math.max(1, (int) Math.round(enlarged.width() * scale));
+            int scaledHeight = Math.max(1, (int) Math.round(enlarged.height() * scale));
+            byte[] scaled = new byte[Math.multiplyExact(scaledWidth, scaledHeight)];
+            for (int y = 0; y < scaledHeight; y++) {
+                int sourceY = Math.min(
+                        enlarged.height() - 1,
+                        (int) ((long) y * enlarged.height() / scaledHeight));
+                int sourceRow = sourceY * enlarged.width();
+                int targetRow = y * scaledWidth;
+                for (int x = 0; x < scaledWidth; x++) {
+                    int sourceX = Math.min(
+                            enlarged.width() - 1,
+                            (int) ((long) x * enlarged.width() / scaledWidth));
+                    scaled[targetRow + x] = enlarged.bytes()[sourceRow + sourceX];
+                }
+            }
+            if (enlarged.bytes() != luminance) {
+                Arrays.fill(enlarged.bytes(), (byte) 0);
             }
             return new ScaledLuminance(scaled, scaledWidth, scaledHeight);
         }

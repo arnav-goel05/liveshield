@@ -10,6 +10,8 @@
     <string name="camera_permission_denied">Camera permission needed</string>
     <string name="camera_session_retry">Protected camera session stopped. Tap the preview area to reconnect.</string>
     <string name="camera_permission_granted">Protected camera connected</string>
+    <string name="switch_to_rear_camera">Switch to rear camera</string>
+    <string name="switch_to_front_camera">Switch to front camera</string>
     <string name="allow_camera">Connect camera</string>
 
     <string name="setup_title">Live setup</string>

@@ -27,6 +27,7 @@ public final class SetupViewportLayoutTest {
 
         assertTrue(layout.contains("android:id=\"@+id/setup_content\""));
         assertTrue(layout.contains("android:id=\"@+id/sanitized_preview_container\""));
+        assertTrue(layout.contains("android:id=\"@+id/switch_camera\""));
         assertFalse(layout.contains("android:id=\"@+id/setup_back\""));
         assertFalse(layout.contains("android:id=\"@+id/request_camera_permission\""));
     }
